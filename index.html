@@ -1,0 +1,1000 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f5f3ee" />
+  <title>Noma — MVP v0.14</title>
+  <style>
+:root {
+  --bg: #f5f3ee;
+  --card: #fffdf8;
+  --text: #171714;
+  --muted: #747169;
+  --line: #dcd8ce;
+  --soft: #ebe7dc;
+  --accent: #1f4d3b;
+  --danger: #8b2e2e;
+  --radius: 24px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+body { min-height: 100dvh; overflow-x: hidden; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+
+.app-shell {
+  width: min(100%, 520px);
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 28px 20px calc(124px + env(safe-area-inset-bottom));
+}
+
+.topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 34px; }
+.brand { font-size: 24px; font-weight: 750; letter-spacing: -0.04em; }
+.lang { font-size: 13px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; background: rgba(255,255,255,.35); }
+
+.hero { margin: 18px 0 34px; }
+.eyebrow { font-size: 13px; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.big-number { font-size: clamp(56px, 18vw, 92px); line-height: .9; font-weight: 760; letter-spacing: -0.075em; }
+.big-number span { font-size: 16px; font-weight: 600; letter-spacing: 0; color: var(--muted); margin-left: 8px; }
+.substat { margin-top: 14px; color: var(--muted); font-size: 15px; }
+.progress-line { height: 6px; border-radius: 999px; background: var(--soft); margin-top: 22px; overflow: hidden; }
+.progress-line > div { height: 100%; background: var(--text); border-radius: inherit; transition: width .3s ease; }
+
+.card { background: var(--card); border: 1px solid rgba(0,0,0,.06); border-radius: var(--radius); padding: 22px; box-shadow: 0 12px 30px rgba(24,24,20,.05); }
+.session-card { display: grid; gap: 18px; }
+.session-title { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
+.session-title strong { font-size: 22px; letter-spacing: -.03em; }
+.session-title span { color: var(--muted); font-size: 14px; }
+.session-list { display: grid; gap: 10px; color: #403e39; font-size: 15px; }
+.session-row { display: flex; justify-content: space-between; gap: 12px; }
+.session-row em { font-style: normal; color: var(--muted); }
+
+.primary, .secondary, .ghost, .danger-btn {
+  border: 0; border-radius: 16px; min-height: 52px; padding: 14px 18px; font-weight: 700;
+}
+.primary { background: var(--text); color: #fff; width: 100%; }
+.secondary { background: var(--soft); color: var(--text); width: 100%; }
+.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+.danger-btn { background: #f4e8e5; color: var(--danger); }
+.button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.button-stack { display: grid; gap: 10px; }
+
+.exercise-wrap { display: block; }
+.app-shell.exercise-shell { padding-top: 14px; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+.exercise-head { display: flex; align-items: center; gap: 12px; margin-bottom: 0; }
+.back { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: transparent; font-size: 19px; }
+.step-track { flex: 1; height: 4px; background: var(--soft); border-radius: 999px; overflow: hidden; }
+.step-track > div { height: 100%; background: var(--text); }
+.step-count { color: var(--muted); font-size: 13px; min-width: 38px; text-align: right; }
+.exercise-main { display: block; padding-top: 18px; padding-bottom: 28px; }
+.exercise-content { width: 100%; }
+.answer-zone { margin-top: 4px; }
+.answer-display { width: 100%; min-height: 47px; border-bottom: 2px solid var(--line); padding: 10px 2px; font-size: 21px; color: var(--text); margin: 4px 0 10px; display:flex; align-items:center; }
+.answer-display.muted { color: var(--muted); }
+.status-chip { min-height:52px; border-radius:16px; display:flex; align-items:center; justify-content:center; padding:14px 12px; font-weight:700; border:1px solid var(--line); background:var(--card); }
+.status-chip.ok { background:#e7efe9; border-color:#d7e6db; }
+.status-chip.bad { background:#f4e8e5; border-color:#ead6d2; color:var(--danger); }
+.result-detail { margin-top:18px; }
+.result-detail .feedback { margin-top:0; }
+.mode-picker { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; background:var(--soft); border-radius:16px; padding:5px; }
+.mode-btn { border:0; min-height:42px; border-radius:12px; background:transparent; color:var(--muted); font-weight:700; font-size:13px; }
+.mode-btn.active { background:var(--card); color:var(--text); box-shadow:0 2px 8px rgba(24,24,20,.06); }
+.mode-note { color:var(--muted); font-size:13px; line-height:1.4; margin-top:-4px; }
+
+.exercise-type { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .09em; margin-bottom: 8px; }
+.prompt-word { font-size: clamp(42px, 13vw, 68px); font-weight: 750; letter-spacing: -.055em; line-height: 1; margin: 2px 0 10px; }
+.prompt-sentence { font-size: clamp(25px, 8vw, 30px); line-height: 1.15; font-weight: 680; letter-spacing: -.04em; margin: 4px 0 14px; }
+.hint { color: var(--muted); font-size: 15px; line-height: 1.35; }
+.reveal { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 20px; }
+.reveal strong { display: block; font-size: 22px; margin-bottom: 8px; }
+.example { font-size: 17px; line-height: 1.5; margin-top: 14px; }
+.example small { display:block; color:var(--muted); font-size:14px; margin-top: 4px; }
+
+.answer-input { width: 100%; border: 0; border-bottom: 2px solid var(--line); background: transparent; padding: 10px 2px; font-size: 21px; outline: none; color: var(--text); margin: 4px 0 10px; }
+.answer-input:focus { border-bottom-color: var(--text); }
+.feedback { border-radius: 18px; padding: 16px; margin: 8px 0 18px; font-size: 15px; line-height: 1.45; }
+.feedback.ok { background: #e7efe9; }
+.feedback.bad { background: #f4e8e5; }
+.feedback b { display: block; margin-bottom: 4px; }
+
+.done { text-align: left; padding-top: 10vh; }
+.done h1 { font-size: 58px; letter-spacing: -.06em; margin: 0 0 18px; }
+.done p { color: var(--muted); line-height: 1.5; }
+.delta { font-size: 34px; font-weight: 760; letter-spacing: -.045em; margin: 34px 0 8px; }
+
+.section-title { font-size: 32px; letter-spacing: -.045em; margin: 10px 0 6px; }
+.section-sub { color: var(--muted); margin: 0 0 26px; line-height: 1.45; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0; }
+.stat { background: var(--card); border: 1px solid rgba(0,0,0,.06); border-radius: 20px; padding: 18px; }
+.stat b { display: block; font-size: 30px; letter-spacing: -.04em; }
+.stat span { color: var(--muted); font-size: 13px; }
+.list { display: grid; gap: 10px; margin: 18px 0 26px; }
+.list-item { padding: 16px 0; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; }
+.list-item span:last-child { color: var(--muted); }
+
+.bottom-dock { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(100%, 520px); z-index: 1000; background: var(--bg); padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid rgba(0,0,0,.045); }
+.bottom-nav { width: 100%; display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; background: var(--card); border: 1px solid rgba(0,0,0,.07); border-radius: 22px; padding: 7px; box-shadow: 0 8px 28px rgba(0,0,0,.07); }
+.nav-btn { border: 0; background: transparent; border-radius: 16px; min-height: 48px; color: var(--muted); font-size: 13px; font-weight: 650; }
+.nav-btn.active { background: var(--text); color: white; }
+
+.note { font-size: 13px; color: var(--muted); line-height: 1.5; margin-top: 16px; }
+.demo-tools { margin-top: 30px; padding-top: 20px; border-top: 1px dashed var(--line); }
+.demo-tools summary { color: var(--muted); cursor: pointer; font-size: 13px; }
+.demo-actions { display: grid; gap: 10px; margin-top: 12px; }
+
+@media (max-width: 380px) {
+  .app-shell { padding-left: 16px; padding-right: 16px; }
+  .exercise-main { padding-top: 14px; }
+  .prompt-sentence { font-size: 26px; }
+  .button-row { grid-template-columns: 1fr; }
+}
+
+/* v0.2 — swipe answer for Word */
+.swipe-stage { position: relative; min-height: 310px; display: grid; place-items: center; padding: 12px 0; overflow: visible; }
+.swipe-card { position: relative; width: min(100%, 390px); min-height: 280px; padding: 34px 26px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; background: var(--card); border: 1px solid rgba(0,0,0,.07); border-radius: 30px; box-shadow: 0 20px 45px rgba(24,24,20,.10); touch-action: pan-y; user-select: none; will-change: transform; }
+.swipe-card .prompt-word { margin: 0 0 18px; }
+.swipe-stamp { position: absolute; top: 24px; padding: 7px 11px; border: 2px solid currentColor; border-radius: 10px; font-size: 14px; font-weight: 850; letter-spacing: .12em; opacity: 0; transition: opacity .08s ease; }
+.swipe-stamp.no { left: 22px; color: var(--danger); transform: rotate(-8deg); }
+.swipe-stamp.yes { right: 22px; color: var(--accent); transform: rotate(8deg); }
+.swipe-card.drag-left .swipe-stamp.no, .swipe-card.drag-right .swipe-stamp.yes { opacity: 1; }
+.swipe-help { text-align: center; color: var(--muted); font-size: 13px; margin: 5px 0 18px; }
+.swipe-actions { display: flex; justify-content: center; gap: 28px; }
+.swipe-btn { width: 62px; height: 62px; border-radius: 50%; background: var(--card); border: 1px solid var(--line); font-size: 30px; font-weight: 500; box-shadow: 0 8px 20px rgba(24,24,20,.07); }
+.no-btn { color: var(--danger); }
+.yes-btn { color: var(--accent); }
+.choice-correction { width: 100%; min-height: 46px; margin: 0 0 10px; border: 0; background: transparent; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+
+.forget-summary { width:100%; margin:14px 0 0; border:1px solid var(--line); background:var(--card); border-radius:18px; padding:15px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--text); text-align:left; }
+.forget-summary em { color:var(--muted); font-style:normal; font-size:13px; }
+.forget-list { display:grid; gap:10px; margin:18px 0 96px; }
+.forget-item { background:var(--card); border:1px solid var(--line); border-radius:18px; overflow:hidden; }
+.forget-item summary { list-style:none; padding:16px; display:flex; align-items:center; justify-content:space-between; gap:14px; cursor:pointer; }
+.forget-item summary::-webkit-details-marker { display:none; }
+.forget-item summary span { display:grid; gap:3px; }
+.forget-item summary small { color:var(--muted); font-size:12px; font-weight:500; }
+.forget-item summary em { color:var(--muted); font-size:12px; font-style:normal; white-space:nowrap; }
+.forget-detail { border-top:1px solid var(--line); padding:15px 16px 17px; }
+.forget-detail p { margin:8px 0 4px; }
+.forget-detail small { color:var(--muted); }
+.empty-state { padding:26px 20px; border:1px dashed var(--line); border-radius:18px; text-align:center; color:var(--muted); }
+.empty-state b { color:var(--text); }
+.data-card { margin-top:16px; }
+@media (max-width:380px){ .nav-btn{font-size:11px;} }
+
+/* v0.4: typed Word recall */
+.word-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:8px;margin-top:8px}
+.secondary{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:16px;padding:15px 18px;font:inherit;font-weight:700;cursor:pointer}
+.your-answer{margin:18px 0 12px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.55);border:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.your-answer span{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.your-answer b{font-size:17px}
+
+.cloze-card{margin:8px 0 14px;padding:18px 18px;border:1px solid var(--line);border-radius:18px;background:var(--card);font-size:22px;line-height:1.45;letter-spacing:-.02em}
+.cloze-blank{display:inline-block;min-width:86px;border-bottom:2px solid var(--text);text-align:center;font-weight:700;letter-spacing:.06em}
+.translation-note{color:var(--muted);font-size:14px;line-height:1.45;margin:0 0 14px}
+.auto-grade-note{font-size:12px;color:var(--muted);line-height:1.45;margin-top:10px}
+@media (max-width:420px){.word-actions{grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:8px}.primary,.secondary{padding-left:10px;padding-right:10px}}
+
+/* v0.8: Listen Once — separate skill, same stable mobile geometry */
+.listen-home-card{margin-top:12px;display:grid;gap:14px}
+.listen-home-copy{color:var(--muted);font-size:14px;line-height:1.45;margin:0}
+.listen-metric{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-top:2px}
+.listen-metric b{font-size:28px;letter-spacing:-.04em}
+.listen-metric span{color:var(--muted);font-size:13px}
+.listen-stage{min-height:132px;display:grid;place-items:center;align-content:center;gap:9px;margin:2px 0 8px}
+.listen-play{width:76px;height:76px;border-radius:50%;border:1px solid var(--line);background:var(--text);color:#fff;font-size:28px;display:grid;place-items:center;box-shadow:0 10px 28px rgba(24,24,20,.10)}
+.listen-play:disabled{opacity:.58;cursor:default}
+.listen-state{min-height:20px;color:var(--muted);font-size:13px;text-align:center}
+.listen-error{color:var(--danger)}
+.answer-input:disabled{opacity:.55;cursor:not-allowed}
+.primary:disabled,.secondary:disabled{opacity:.45;cursor:not-allowed}
+.listen-badge{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:5px 8px;font-size:11px;color:var(--muted);font-weight:700}
+
+
+/* v0.10: Tiny Reader — static curated texts + six closed questions */
+.reader-home-card{margin-top:12px;display:grid;gap:14px}
+.reader-home-copy{color:var(--muted);font-size:14px;line-height:1.5;margin:0}
+.reader-library{display:grid;gap:18px;margin:18px 0 26px}
+.reader-group{display:grid;gap:12px}
+.reader-group-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:0 2px}
+.reader-group-head h2{margin:0;font-size:18px;letter-spacing:-.025em}
+.reader-group-head span{color:var(--muted);font-size:13px;white-space:nowrap}
+.reader-group.pending{padding-bottom:20px;border-bottom:2px solid var(--text)}
+.reader-group.completed{margin-top:2px;padding:16px;border-radius:24px;background:#ebe8df}
+.reader-group.completed .reader-card{box-shadow:none;background:#f8f6f0;border-color:rgba(0,0,0,.07)}
+.reader-group-empty{padding:18px;border:1px dashed var(--line);border-radius:18px;color:var(--muted);font-size:14px;line-height:1.45;background:rgba(255,255,255,.28)}
+.reader-status-badge{display:inline-flex;align-items:center;width:max-content;max-width:100%;font-size:12px;font-weight:700;border-radius:999px;padding:6px 9px;background:var(--soft);color:var(--muted)}
+.reader-status-badge.pending{background:var(--text);color:var(--card)}
+.reader-status-badge.errors{background:#f4e8e5;color:var(--danger)}
+.reader-status-badge.done{background:#e7efe9;color:#315d47}
+.reader-card{background:var(--card);border:1px solid rgba(0,0,0,.06);border-radius:22px;padding:19px;display:grid;gap:12px;box-shadow:0 10px 26px rgba(24,24,20,.04)}
+.reader-card h2{font-size:21px;letter-spacing:-.03em;margin:0}
+.reader-card p{color:var(--muted);font-size:14px;line-height:1.5;margin:0}
+.reader-meta{display:flex;flex-wrap:wrap;gap:8px;color:var(--muted);font-size:12px}
+.reader-meta span{border:1px solid var(--line);border-radius:999px;padding:5px 8px;background:rgba(255,255,255,.35)}
+.reader-head{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.reader-back{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:transparent;font-size:19px;flex:0 0 auto}
+.reader-head-copy{min-width:0}
+.reader-head-copy b{display:block;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.reader-head-copy span{display:block;font-size:14px;color:var(--muted);margin-top:2px}
+.reader-article h1{font-size:clamp(34px,10vw,48px);line-height:1.02;letter-spacing:-.055em;margin:0 0 16px}
+.reader-article .reader-lede{color:var(--muted);font-size:14px;line-height:1.5;margin:0 0 24px}
+.reader-body{font-family:Georgia,"Times New Roman",serif;font-size:19px;line-height:1.68;letter-spacing:-.008em;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.reader-body p{margin:0 0 20px}
+.reader-start-quiz{margin:28px 0 18px}
+.reader-question-wrap{padding-top:6px}
+.reader-question{font-size:clamp(26px,7.5vw,34px);line-height:1.16;letter-spacing:-.04em;margin:26px 0 24px;font-weight:720}
+.reader-options{display:grid;gap:10px}
+.reader-option{width:100%;border:1px solid var(--line);border-radius:17px;background:var(--card);color:var(--text);padding:16px 17px;text-align:left;font-weight:650;line-height:1.35;min-height:56px}
+.reader-option.correct{background:#e7efe9;border-color:#d7e6db}
+.reader-option.wrong{background:#f4e8e5;border-color:#ead6d2;color:var(--danger)}
+.reader-option.dim{opacity:.58}
+.reader-feedback{margin-top:18px;border-radius:17px;padding:15px 16px;line-height:1.45;font-size:14px}
+.reader-feedback.ok{background:#e7efe9}
+.reader-feedback.bad{background:#f4e8e5}
+.reader-next{margin-top:12px}
+.reader-result{padding-top:5vh}
+.reader-score{font-size:72px;line-height:.9;font-weight:780;letter-spacing:-.07em;margin:22px 0 10px}
+.reader-score span{font-size:20px;color:var(--muted);font-weight:650;letter-spacing:0}
+.reader-result p{color:var(--muted);font-size:16px;line-height:1.5}
+.reader-result-actions{display:grid;gap:10px;margin-top:28px}
+@media(max-width:380px){.reader-body{font-size:18px}.reader-question{margin-top:20px}.reader-card{padding:17px}}
+
+
+/* v0.14: Pronounce over secure HTTPS; no keyboard-dictation fallback */
+.pronounce-home-card{margin-top:12px;display:grid;gap:14px}
+.pronounce-home-copy{color:var(--muted);font-size:14px;line-height:1.45;margin:0}
+.pronounce-metric{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.pronounce-metric span{color:var(--muted);font-size:13px}
+.pronounce-metric b{font-size:28px;letter-spacing:-.04em}
+.pronounce-stage{display:grid;gap:14px;margin-top:12px}
+.pronounce-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pronounce-btn{min-height:62px;border-radius:20px;border:1px solid var(--line);font-weight:760;background:var(--card);color:var(--text)}
+.pronounce-btn.primary-mic{background:var(--text);color:#fff;border-color:var(--text)}
+.pronounce-btn:disabled{opacity:.48}
+.pronounce-status{min-height:22px;text-align:center;color:var(--muted);font-size:13px;line-height:1.4}
+.pronounce-status.live{color:var(--accent);font-weight:700}
+.pronounce-status.error{color:var(--danger)}
+.pronounce-heard{border:1px solid var(--line);border-radius:18px;padding:14px 16px;background:var(--card);font-size:16px}
+.pronounce-heard small{display:block;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:10px;font-weight:750;margin-bottom:5px}
+.pronounce-result-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+@media(max-width:380px){.pronounce-btn{min-height:56px}.pronounce-controls,.pronounce-result-actions{gap:8px}}
+
+</style>
+</head>
+<body>
+  <main id="app" class="app-shell" aria-live="polite"></main>
+  <script>
+const PACK_SIZE = 100;
+const STORAGE_KEY = 'noma_mvp_state_v1';
+const APP_VERSION = '0.14';
+const STATE_SCHEMA_VERSION = 3;
+const BACKUP_FORMAT = 'noma-backup';
+const BACKUP_VERSION = 1;
+
+
+// Deterministic grading for the local MVP. These are accepted equivalents,
+// not user overrides. A future product can replace this with a semantic grader.
+const WORD_ALIASES = {
+  'although':['aunque','a pesar de que','si bien'],
+  'instead':['en su lugar','en vez','en cambio','en lugar de eso'],
+  'enough':['suficiente','bastante'],
+  'still':['todavía','aún','aun'],
+  'yet':['todavía','aún','aun'],
+  'almost':['casi','prácticamente','practicamente'],
+  'perhaps':['quizá','quizás','quiza','quizas','tal vez','a lo mejor'],
+  'instead of':['en lugar de','en vez de'],
+  'even though':['aunque','a pesar de que'],
+  'however':['sin embargo','no obstante'],
+  'unless':['a menos que','salvo que'],
+  'probably':['probablemente','seguramente'],
+  'actually':['en realidad','realmente','de hecho'],
+  'usually':['normalmente','habitualmente','por lo general'],
+  'especially':['especialmente','sobre todo','particularmente'],
+  'quite':['bastante'],
+  'rather':['más bien','mas bien'],
+  'whole':['entero','entera','todo','toda'],
+  'several':['varios','varias','unos cuantos','unas cuantas'],
+  'both':['ambos','ambas','los dos','las dos'],
+  'either':['cualquiera de los dos','cualquiera de las dos'],
+  'neither':['ninguno de los dos','ninguna de las dos'],
+  'another':['otro','otra'],
+  'through':['a través de','a traves de','por'],
+  'across':['al otro lado de','a través de','a traves de'],
+  'towards':['hacia','en dirección a','en direccion a'],
+  'within':['dentro de','en un plazo de'],
+  'while':['mientras','mientras que'],
+  'since':['desde','desde que'],
+  'despite':['a pesar de','pese a'],
+  'because of':['a causa de','debido a','por culpa de'],
+  'as soon as':['en cuanto','tan pronto como'],
+  'at least':['al menos','como mínimo','como minimo'],
+  'by the way':['por cierto','a propósito','a proposito'],
+  'in case':['por si','en caso de que'],
+  'find out':['averiguar','descubrir','enterarse'],
+  'figure out':['resolver','entender','descifrar'],
+  'end up':['acabar','terminar'],
+  'pick up':['recoger'],
+  'drop off':['dejar','llevar'],
+  'look for':['buscar'],
+  'look after':['cuidar','ocuparse de'],
+  'give up':['rendirse','dejar','abandonar'],
+  'carry on':['continuar','seguir'],
+  'run out of':['quedarse sin','agotarse'],
+  'turn out':['resultar','acabar siendo'],
+  'set up':['configurar','montar','instalar'],
+  'work out':['resolver','solucionar','salir bien'],
+  'make sure':['asegurarse','comprobar'],
+  'be used to':['estar acostumbrado a','estar habituado a'],
+  'get used to':['acostumbrarse a','habituarse a'],
+  'used to':['solía','solia','soler'],
+  'be supposed to':['se supone que','deber'],
+  'be about to':['estar a punto de'],
+  'have to':['tener que','deber'],
+  'might':['podría','podria','quizá','quizas'],
+  'should':['debería','deberia'],
+  'would':['haría','haria','gustaría','gustaria'],
+  'could':['podría','podria'],
+  'seem':['parecer','dar la impresión','dar la impresion'],
+  'happen':['pasar','suceder','ocurrir'],
+  'matter':['importar','tener importancia'],
+  'expect':['esperar','prever'],
+  'manage':['conseguir','lograr'],
+  'allow':['permitir','dejar'],
+  'realize':['darse cuenta','percatarse'],
+  'remember':['recordar','acordarse'],
+  'forget':['olvidar','olvidarse'],
+  'choose':['elegir','escoger'],
+  'improve':['mejorar','progresar'],
+  'notice':['notar','darse cuenta','percibir'],
+  'agree':['estar de acuerdo','coincidir'],
+  'disagree':['no estar de acuerdo','discrepar'],
+  'wonder':['preguntarse','tener curiosidad'],
+  'guess':['suponer','imaginar','adivinar'],
+  'hope':['esperar','tener esperanza'],
+  'wish':['desear','ojalá','ojala'],
+  'miss':['echar de menos','extrañar','extranar'],
+  'spend':['gastar','pasar'],
+  'borrow':['pedir prestado','tomar prestado'],
+  'lend':['prestar'],
+  'afford':['poder permitirse','permitirse'],
+  'worth':['valer la pena','merecer la pena'],
+  'available':['disponible','libre'],
+  'likely':['probable','probablemente'],
+  'similar':['parecido','parecida','similar'],
+  'different':['diferente','distinto','distinta'],
+  'on time':['a tiempo','puntual']
+};
+
+const CLOZE_OVERRIDES = {
+  'end up': {prompt:'We _____ staying at home.', answer:'ended up'},
+  'pick up': {prompt:'I’ll _____ the package at eight.', answer:'pick up', es:'Recogeré el paquete a las ocho.'},
+  'drop off': {prompt:'Can you _____ the package here?', answer:'drop off', es:'¿Puedes dejar el paquete aquí?'},
+  'look for': {prompt:'I need to _____ my keys.', answer:'look for', es:'Necesito buscar mis llaves.'},
+  'run out of': {prompt:'We don’t want to _____ milk.', answer:'run out of', es:'No queremos quedarnos sin leche.'},
+  'turn out': {prompt:'Things can _____ better than expected.', answer:'turn out', es:'Las cosas pueden resultar mejor de lo esperado.'},
+  'work out': {prompt:'We can _____ the problem.', answer:'work out', es:'Podemos resolver el problema.'},
+  'be used to': {prompt:'I’m _____ getting up early.', answer:'used to'},
+  'be supposed to': {prompt:'We are _____ meet at six.', answer:'supposed to'},
+  'be about to': {prompt:'I’m _____ leave.', answer:'about to'},
+  'forget': {prompt:'I _____ his name.', answer:'forgot'},
+  'improve': {prompt:'My English is _____.', answer:'improving'},
+  'spend': {prompt:'I _____ too much money.', answer:'spent'}
+};
+
+const baseUnits = [
+  ['although','aunque','Although it was raining, we went out.','Aunque llovía, salimos.'],
+  ['instead','en su lugar','We stayed home instead.','Nos quedamos en casa en su lugar.'],
+  ['enough','suficiente','That is enough for today.','Eso es suficiente por hoy.'],
+  ['still','todavía','I still remember that place.','Todavía recuerdo ese lugar.'],
+  ['already','ya','I have already finished.','Ya he terminado.'],
+  ['yet','todavía / aún','I haven’t finished yet.','Todavía no he terminado.'],
+  ['almost','casi','We are almost there.','Ya casi hemos llegado.'],
+  ['perhaps','quizá','Perhaps we should leave earlier.','Quizá deberíamos salir antes.'],
+  ['instead of','en lugar de','We walked instead of taking the car.','Fuimos andando en lugar de coger el coche.'],
+  ['even though','aunque','Even though I was tired, I kept working.','Aunque estaba cansado, seguí trabajando.'],
+  ['however','sin embargo','It was expensive; however, it was worth it.','Era caro; sin embargo, valió la pena.'],
+  ['unless','a menos que','I won’t go unless you come too.','No iré a menos que tú también vengas.'],
+  ['probably','probablemente','It will probably rain later.','Probablemente lloverá más tarde.'],
+  ['actually','en realidad','Actually, I changed my mind.','En realidad, cambié de opinión.'],
+  ['usually','normalmente','I usually get up at seven.','Normalmente me levanto a las siete.'],
+  ['especially','especialmente','I like it, especially in summer.','Me gusta, especialmente en verano.'],
+  ['quite','bastante','The film was quite good.','La película estuvo bastante bien.'],
+  ['rather','más bien','I would rather stay home.','Preferiría quedarme en casa.'],
+  ['whole','entero','I spent the whole day there.','Pasé el día entero allí.'],
+  ['several','varios','Several people called me.','Varias personas me llamaron.'],
+  ['both','ambos','Both options are fine.','Ambas opciones están bien.'],
+  ['either','cualquiera de los dos','Either day works for me.','Cualquiera de los dos días me va bien.'],
+  ['neither','ninguno de los dos','Neither answer is correct.','Ninguna de las dos respuestas es correcta.'],
+  ['another','otro','Can I have another coffee?','¿Puedo tomar otro café?'],
+  ['through','a través de','We walked through the park.','Caminamos por el parque.'],
+  ['across','al otro lado de','The shop is across the street.','La tienda está al otro lado de la calle.'],
+  ['towards','hacia','She walked towards the station.','Caminó hacia la estación.'],
+  ['within','dentro de','I’ll reply within an hour.','Responderé dentro de una hora.'],
+  ['without','sin','I left without my keys.','Salí sin mis llaves.'],
+  ['during','durante','I fell asleep during the film.','Me dormí durante la película.'],
+  ['while','mientras','I listened to music while cooking.','Escuché música mientras cocinaba.'],
+  ['since','desde','I have lived here since 2020.','Vivo aquí desde 2020.'],
+  ['for','durante','I have waited for two hours.','He esperado durante dos horas.'],
+  ['until','hasta','I’ll stay until Friday.','Me quedaré hasta el viernes.'],
+  ['despite','a pesar de','Despite the rain, we went out.','A pesar de la lluvia, salimos.'],
+  ['because of','a causa de','The train was late because of the storm.','El tren llegó tarde a causa de la tormenta.'],
+  ['as soon as','en cuanto','Call me as soon as you arrive.','Llámame en cuanto llegues.'],
+  ['at least','al menos','At least we tried.','Al menos lo intentamos.'],
+  ['by the way','por cierto','By the way, how was your trip?','Por cierto, ¿qué tal tu viaje?'],
+  ['in case','por si','Take an umbrella in case it rains.','Lleva un paraguas por si llueve.'],
+  ['find out','averiguar','I need to find out what happened.','Necesito averiguar qué pasó.'],
+  ['figure out','resolver / entender','We need to figure out the problem.','Tenemos que resolver el problema.'],
+  ['end up','acabar','We ended up staying at home.','Acabamos quedándonos en casa.'],
+  ['pick up','recoger','I’ll pick you up at eight.','Te recogeré a las ocho.'],
+  ['drop off','dejar','Can you drop me off here?','¿Puedes dejarme aquí?'],
+  ['look for','buscar','I’m looking for my keys.','Estoy buscando mis llaves.'],
+  ['look after','cuidar','Can you look after the dog?','¿Puedes cuidar al perro?'],
+  ['give up','rendirse / dejar','Don’t give up yet.','No te rindas todavía.'],
+  ['carry on','continuar','Let’s carry on tomorrow.','Continuemos mañana.'],
+  ['run out of','quedarse sin','We ran out of milk.','Nos quedamos sin leche.'],
+  ['turn out','resultar','It turned out better than expected.','Resultó mejor de lo esperado.'],
+  ['set up','configurar / montar','I need to set up my new phone.','Tengo que configurar mi móvil nuevo.'],
+  ['work out','resolver / salir bien','We’ll work it out.','Lo resolveremos.'],
+  ['make sure','asegurarse','Make sure the door is closed.','Asegúrate de que la puerta esté cerrada.'],
+  ['be used to','estar acostumbrado a','I’m used to getting up early.','Estoy acostumbrado a levantarme temprano.'],
+  ['get used to','acostumbrarse a','You’ll get used to it.','Te acostumbrarás.'],
+  ['used to','solía','I used to live in London.','Solía vivir en Londres.'],
+  ['be supposed to','se supone que','We are supposed to meet at six.','Se supone que quedamos a las seis.'],
+  ['be about to','estar a punto de','I’m about to leave.','Estoy a punto de salir.'],
+  ['have to','tener que','I have to go now.','Tengo que irme ahora.'],
+  ['might','podría','It might rain tonight.','Podría llover esta noche.'],
+  ['should','debería','You should get some rest.','Deberías descansar.'],
+  ['would','haría / gustaría','I would choose the second one.','Yo elegiría el segundo.'],
+  ['could','podría','We could go tomorrow.','Podríamos ir mañana.'],
+  ['need','necesitar','I need more time.','Necesito más tiempo.'],
+  ['seem','parecer','You seem tired.','Pareces cansado.'],
+  ['mean','significar','What does this mean?','¿Qué significa esto?'],
+  ['happen','pasar','What happened yesterday?','¿Qué pasó ayer?'],
+  ['matter','importar','It doesn’t matter.','No importa.'],
+  ['expect','esperar','I didn’t expect that.','No esperaba eso.'],
+  ['manage','conseguir','I managed to finish on time.','Conseguí terminar a tiempo.'],
+  ['avoid','evitar','Try to avoid that road.','Intenta evitar esa carretera.'],
+  ['allow','permitir','They don’t allow pets here.','Aquí no permiten mascotas.'],
+  ['suggest','sugerir','I suggest taking the train.','Sugiero coger el tren.'],
+  ['realize','darse cuenta','I realized I was wrong.','Me di cuenta de que estaba equivocado.'],
+  ['remember','recordar','Remember to call me.','Recuerda llamarme.'],
+  ['forget','olvidar','I forgot his name.','Olvidé su nombre.'],
+  ['decide','decidir','We decided to stay.','Decidimos quedarnos.'],
+  ['choose','elegir','Choose the one you prefer.','Elige el que prefieras.'],
+  ['change','cambiar','Things can change quickly.','Las cosas pueden cambiar rápidamente.'],
+  ['improve','mejorar','My English is improving.','Mi inglés está mejorando.'],
+  ['notice','notar','Did you notice the difference?','¿Notaste la diferencia?'],
+  ['agree','estar de acuerdo','I agree with you.','Estoy de acuerdo contigo.'],
+  ['disagree','no estar de acuerdo','I disagree with that idea.','No estoy de acuerdo con esa idea.'],
+  ['wonder','preguntarse','I wonder what happened.','Me pregunto qué pasó.'],
+  ['guess','suponer','I guess you’re right.','Supongo que tienes razón.'],
+  ['hope','esperar','I hope everything goes well.','Espero que todo vaya bien.'],
+  ['wish','desear','I wish I had more time.','Ojalá tuviera más tiempo.'],
+  ['miss','echar de menos','I miss that place.','Echo de menos ese lugar.'],
+  ['spend','gastar / pasar','I spent too much money.','Gasté demasiado dinero.'],
+  ['save','ahorrar','I’m trying to save money.','Estoy intentando ahorrar dinero.'],
+  ['borrow','pedir prestado','Can I borrow your charger?','¿Me prestas tu cargador?'],
+  ['lend','prestar','Can you lend me ten euros?','¿Puedes prestarme diez euros?'],
+  ['afford','poder permitirse','I can’t afford a new car.','No puedo permitirme un coche nuevo.'],
+  ['worth','valer la pena','It was expensive but worth it.','Fue caro, pero valió la pena.'],
+  ['available','disponible','Is this seat available?','¿Está disponible este asiento?'],
+  ['likely','probable','Rain is likely tomorrow.','Es probable que llueva mañana.'],
+  ['similar','parecido','The two options are similar.','Las dos opciones son parecidas.'],
+  ['different','diferente','This one is different.','Este es diferente.'],
+  ['on time','a tiempo','The train arrived on time.','El tren llegó a tiempo.']
+].map((x, i) => ({ id: i+1, term:x[0], meaning:x[1], en:x[2], es:x[3] }));
+
+const READER_TEXTS = [
+  {
+    id:'saturday-plan',
+    title:'A Saturday That Didn’t Go to Plan',
+    description:'Un plan de sábado que cambia varias veces, pero termina mejor de lo esperado.',
+    minutes:3,
+    words:227,
+    paragraphs:[
+      `On Saturday morning, Marta planned to meet her friend Leo in the city centre. They had already bought tickets for a small photography exhibition, and Marta wanted to arrive early because the museum usually became crowded after lunch. She left home at half past nine and walked towards the station. However, when she reached the platform, she found out that her train had been cancelled because of a technical problem.`,
+      `At first, Marta thought about taking a taxi, but the traffic was quite heavy and the price was higher than she expected. Instead, she took a bus that stopped near the old market. The journey took longer than usual, and she was almost thirty minutes late. Leo was still waiting outside the museum when she arrived.`,
+      `Fortunately, they were able to enter without any problem. The exhibition turned out to be smaller than they had imagined, but both of them enjoyed it. Afterwards, they walked through the market and found a quiet café. Marta ordered coffee and Leo chose tea. They spent nearly an hour talking about the photographs they had seen.`,
+      `By the time they left the café, it had started to rain. They did not have an umbrella, so they decided to take the metro home instead of walking. The day had not gone according to plan, but Marta thought it was still worth it.`
+    ],
+    questions:[
+      {q:'Why did Marta want to arrive at the museum early?',options:['The tickets were only valid in the morning.','The museum usually became crowded after lunch.','Leo had to leave before lunch.'],correct:1},
+      {q:'Why was Marta’s train cancelled?',options:['Because of a technical problem.','Because of heavy rain.','Because the station was closed.'],correct:0},
+      {q:'How did Marta finally travel towards the city centre?',options:['By taxi.','By bus.','By metro.'],correct:1},
+      {q:'Leo was still waiting outside the museum when Marta arrived.',options:['True','False'],correct:0},
+      {q:'What was different from what Marta and Leo expected about the exhibition?',options:['It was more expensive.','It was more crowded.','It was smaller.'],correct:2},
+      {q:'Which sentence best describes Marta’s day?',options:['Almost everything went as planned.','Several plans changed, but she still enjoyed the day.','The transport problems made her go straight home.'],correct:1}
+    ]
+  },
+  {
+    id:'office-days',
+    title:'Two Days Back at the Office',
+    description:'Daniel prueba una rutina híbrida y descubre ventajas e inconvenientes que no esperaba.',
+    minutes:3,
+    words:246,
+    paragraphs:[
+      `Daniel had been working from home for several months when his company asked everyone to return to the office two days a week. He was not especially happy about the change. At home, he could start work earlier, avoid the morning traffic and prepare lunch in his own kitchen. Still, he decided to give the new routine a chance.`,
+      `On his first Tuesday back, Daniel arrived at the office at eight thirty. He was surprised to see that the building was quieter than before. Several colleagues had chosen different office days, so only about half of his team was there. His manager suggested using the morning for tasks that were easier to do together. They spent an hour discussing a project and managed to solve a problem that had been difficult to explain in video calls.`,
+      `At lunchtime, Daniel went out with two colleagues instead of eating at his desk. They found a small restaurant nearby and talked about things that had nothing to do with work. Daniel realized that he had missed those informal conversations more than he expected.`,
+      `The afternoon was less productive. People stopped by his desk several times, and it was harder to concentrate. However, on the train home, Daniel decided the office days were not completely bad. He still preferred working from home most of the time, but he could see a reason for meeting his team in person. He planned to keep both kinds of days in his weekly routine.`
+    ],
+    questions:[
+      {q:'Why did Daniel initially prefer working from home?',options:['He could avoid commuting and organize his day more easily.','His company did not have enough desks.','He did not know anyone at the office.'],correct:0},
+      {q:'About how much of Daniel’s team was in the office that Tuesday?',options:['The whole team.','About half of the team.','Only Daniel and his manager.'],correct:1},
+      {q:'What useful thing happened during the morning?',options:['They finished the entire project.','They solved a problem together.','Daniel learned to use a new video-call tool.'],correct:1},
+      {q:'Daniel ate lunch alone at his desk.',options:['True','False'],correct:1},
+      {q:'What did Daniel realize during lunch?',options:['He wanted to work in a restaurant.','He had missed informal conversations with colleagues.','He preferred bringing food from home.'],correct:1},
+      {q:'What did Daniel decide at the end?',options:['To work only from home.','To return to the office every day.','To keep a mix of home and office days.'],correct:2}
+    ]
+  }
+];
+
+function initialState(){
+  return {
+    units: baseUnits.map(u => ({...u, status:'new', recognition:0, production:0, recall:0, mistakes:0, due:false, dueSession:null, reviewKind:null, reviewMode:null, lastSeen:null, lastSessionSeen:null, listenAttempts:0, listenCorrect:0, listenMistakes:0, listenFirstResult:null, listenDueSession:null, listenLastSeen:null, listenLastSessionSeen:null, pronounceAttempts:0, pronounceCorrect:0, pronounceMistakes:0, pronounceFirstResult:null, pronounceDueSession:null, pronounceLastSeen:null, pronounceLastSessionSeen:null})),
+    screen:'home',
+    sessionNumber: 0,
+    session: null,
+    lastSessionSummary: null,
+    practiceMode: 'mix',
+    readerProgress: {},
+    readerSession: null,
+    schemaVersion: STATE_SCHEMA_VERSION
+  };
+}
+
+const Storage = {
+  load(){
+    try {
+      const raw=localStorage.getItem(STORAGE_KEY);
+      if(!raw) return null;
+      return JSON.parse(raw);
+    } catch(e){ return null; }
+  },
+  save(value){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+  }
+};
+
+let state = load();
+function load(){
+  const x=Storage.load();
+  if(x?.units?.length===PACK_SIZE) return migrateState(x);
+  return initialState();
+}
+function migrateState(x){
+  x.schemaVersion = Number.isFinite(x.schemaVersion) ? x.schemaVersion : 1;
+  x.sessionNumber = Number.isFinite(x.sessionNumber) ? x.sessionNumber : 0;
+  x.practiceMode = ['word','sentence','mix'].includes(x.practiceMode) ? x.practiceMode : 'mix';
+  x.readerProgress = x.readerProgress && typeof x.readerProgress==='object' ? x.readerProgress : {};
+  x.readerSession = null;
+  if(['reader','readerLibrary'].includes(x.screen)) x.screen='home';
+  x.units = x.units.map(u => {
+    let dueSession = Number.isFinite(u.dueSession) ? u.dueSession : (u.due ? x.sessionNumber + 1 : null);
+    let reviewKind = u.reviewKind || (u.due || u.status==='unstable' ? 'forget' : null);
+    let reviewMode = u.reviewMode || 'word';
+    // Units successfully introduced in v0.1 had no delayed recall at all.
+    // Queue them gradually instead of replaying their sentence every session.
+    if(dueSession==null && u.status==='learning' && (u.recognition||0)>=1 && (u.production||0)>=1 && (u.recall||0)<1){
+      dueSession=x.sessionNumber+2;
+      reviewKind='verify';
+    }
+    return {...u,dueSession,reviewKind,reviewMode,lastSessionSeen:Number.isFinite(u.lastSessionSeen)?u.lastSessionSeen:null,
+      listenAttempts:Number.isFinite(u.listenAttempts)?u.listenAttempts:0,
+      listenCorrect:Number.isFinite(u.listenCorrect)?u.listenCorrect:0,
+      listenMistakes:Number.isFinite(u.listenMistakes)?u.listenMistakes:0,
+      listenFirstResult:(u.listenFirstResult===true||u.listenFirstResult===false)?u.listenFirstResult:null,
+      listenDueSession:Number.isFinite(u.listenDueSession)?u.listenDueSession:null,
+      listenLastSeen:Number.isFinite(u.listenLastSeen)?u.listenLastSeen:null,
+      listenLastSessionSeen:Number.isFinite(u.listenLastSessionSeen)?u.listenLastSessionSeen:null,
+      pronounceAttempts:Number.isFinite(u.pronounceAttempts)?u.pronounceAttempts:0,
+      pronounceCorrect:Number.isFinite(u.pronounceCorrect)?u.pronounceCorrect:0,
+      pronounceMistakes:Number.isFinite(u.pronounceMistakes)?u.pronounceMistakes:0,
+      pronounceFirstResult:(u.pronounceFirstResult===true||u.pronounceFirstResult===false)?u.pronounceFirstResult:null,
+      pronounceDueSession:Number.isFinite(u.pronounceDueSession)?u.pronounceDueSession:null,
+      pronounceLastSeen:Number.isFinite(u.pronounceLastSeen)?u.pronounceLastSeen:null,
+      pronounceLastSessionSeen:Number.isFinite(u.pronounceLastSessionSeen)?u.pronounceLastSessionSeen:null};
+  });
+  // Sessions from the first MVP can contain tasks created with the old repeat logic.
+  // Discard only the in-progress session; all learning progress is preserved.
+  x.session = null;
+  if(x.screen==='exercise') x.screen='home';
+  return x;
+}
+function save(){ state.schemaVersion=STATE_SCHEMA_VERSION; Storage.save(state); }
+function normalize(s=''){
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[’']/g,"'").replace(/[^a-z0-9' ]/g,' ').replace(/\s+/g,' ').trim();
+}
+function escapeHtml(s=''){return s.replace(/[&<>"]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+function knownCount(){ return state.units.filter(u=>u.status==='known').length; }
+// A unit stops counting as 'left' after the learner has successfully recognised
+// and produced it. A later failed recall can put it back into pending.
+function learnedCount(){ return state.units.filter(u=>u.recognition>=1 && u.production>=1 && u.status!=='unstable').length; }
+function leftCount(){ return PACK_SIZE - learnedCount(); }
+function textForgetCount(){ return state.units.filter(u=>u.reviewKind==='forget' && u.dueSession!=null).length; }
+function listenForgetCount(){ return state.units.filter(u=>u.listenDueSession!=null).length; }
+function pronounceForgetCount(){ return state.units.filter(u=>u.pronounceDueSession!=null).length; }
+function unstableCount(){ return textForgetCount()+listenForgetCount()+pronounceForgetCount(); }
+function listenFirstStats(){
+  const attempted=state.units.filter(u=>u.listenFirstResult===true||u.listenFirstResult===false);
+  const correct=attempted.filter(u=>u.listenFirstResult===true).length;
+  return {attempted:attempted.length,correct,pct:attempted.length?Math.round(correct/attempted.length*100):null};
+}
+function pronounceFirstStats(){
+  const attempted=state.units.filter(u=>u.pronounceFirstResult===true||u.pronounceFirstResult===false);
+  const correct=attempted.filter(u=>u.pronounceFirstResult===true).length;
+  return {attempted:attempted.length,correct,pct:attempted.length?Math.round(correct/attempted.length*100):null};
+}
+function learningCount(){ return state.units.filter(u=>u.status==='learning' || u.status==='unstable').length; }
+function maybeKnown(u){
+  if(u.recognition>=1 && u.production>=1 && u.recall>=1){
+    u.status='known'; u.due=false; u.dueSession=null; u.reviewKind=null;
+  } else if(u.status!=='unstable') {
+    u.status='learning';
+  }
+}
+function scheduleReview(u, delay, kind, mode){
+  const target=(state.sessionNumber||0)+delay;
+  // Never make an existing review later; one pending review per unit is enough.
+  u.dueSession = u.dueSession==null ? target : Math.min(u.dueSession,target);
+  u.reviewKind = kind==='forget' ? 'forget' : (u.reviewKind || kind);
+  if(mode) u.reviewMode=mode;
+  u.due=true;
+}
+function markFailure(u, mode='word'){
+  u.mistakes++;
+  u.status='unstable';
+  u.lastSeen=Date.now();
+  u.lastSessionSeen=state.sessionNumber||0;
+  u.reviewMode=mode;
+  // First miss gets breathing room; repeated misses can return next session.
+  scheduleReview(u, u.mistakes>=2 ? 1 : 2, 'forget', mode);
+}
+function markSuccess(u, kind){
+  u[kind] = (u[kind]||0)+1;
+  u.lastSeen=Date.now();
+  u.lastSessionSeen=state.sessionNumber||0;
+  if(kind==='recall'){
+    u.due=false; u.dueSession=null; u.reviewKind=null; u.reviewMode=null;
+    if(u.status==='unstable') u.status='learning';
+  }
+  maybeKnown(u);
+  // Production is verified later with a separate word recall, not by repeating the same sentence.
+  if(kind==='production' && u.status!=='known' && u.dueSession==null) scheduleReview(u,3,'verify','word');
+}
+function scheduleListenReview(u, delay){
+  const target=(state.sessionNumber||0)+delay;
+  u.listenDueSession=u.listenDueSession==null?target:Math.min(u.listenDueSession,target);
+}
+function markListenSuccess(u){
+  const first=u.listenFirstResult==null;
+  u.listenAttempts=(u.listenAttempts||0)+1;
+  u.listenCorrect=(u.listenCorrect||0)+1;
+  if(first) u.listenFirstResult=true;
+  u.listenLastSeen=Date.now();
+  u.listenLastSessionSeen=state.sessionNumber||0;
+  u.listenDueSession=null;
+}
+function markListenFailure(u){
+  const first=u.listenFirstResult==null;
+  u.listenAttempts=(u.listenAttempts||0)+1;
+  u.listenMistakes=(u.listenMistakes||0)+1;
+  if(first) u.listenFirstResult=false;
+  u.listenLastSeen=Date.now();
+  u.listenLastSessionSeen=state.sessionNumber||0;
+  scheduleListenReview(u,(u.listenMistakes||0)>=2?1:2);
+}
+
+function schedulePronounceReview(u, delay){
+  const target=(state.sessionNumber||0)+delay;
+  u.pronounceDueSession=u.pronounceDueSession==null?target:Math.min(u.pronounceDueSession,target);
+}
+function markPronounceSuccess(u, hadFailure=false){
+  const first=u.pronounceFirstResult==null;
+  u.pronounceAttempts=(u.pronounceAttempts||0)+1;
+  u.pronounceCorrect=(u.pronounceCorrect||0)+1;
+  if(first) u.pronounceFirstResult=true;
+  u.pronounceLastSeen=Date.now();
+  u.pronounceLastSessionSeen=state.sessionNumber||0;
+  if(hadFailure) schedulePronounceReview(u,2);
+  else u.pronounceDueSession=null;
+}
+function markPronounceFailure(u){
+  const first=u.pronounceFirstResult==null;
+  u.pronounceAttempts=(u.pronounceAttempts||0)+1;
+  u.pronounceMistakes=(u.pronounceMistakes||0)+1;
+  if(first) u.pronounceFirstResult=false;
+  u.pronounceLastSeen=Date.now();
+  u.pronounceLastSessionSeen=state.sessionNumber||0;
+  schedulePronounceReview(u,(u.pronounceMistakes||0)>=2?1:2);
+}
+
+function snapshotUnit(u){
+  return {status:u.status,recognition:u.recognition,production:u.production,recall:u.recall,mistakes:u.mistakes,due:u.due,dueSession:u.dueSession,reviewKind:u.reviewKind,reviewMode:u.reviewMode,lastSeen:u.lastSeen,lastSessionSeen:u.lastSessionSeen};
+}
+function restoreUnit(u,snap){ Object.assign(u,snap); }
+function getUnit(id){ return state.units.find(u=>u.id===id); }
+
+function shuffleTasks(items){
+  const a=[...items];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function availableForPractice(u){
+  return !(u.reviewKind==='forget' && u.dueSession!=null);
+}
+function setPracticeMode(mode){
+  if(!['word','sentence','mix'].includes(mode)) return;
+  state.practiceMode=mode; save(); render();
+}
+function dueForMode(u, mode){
+  if(u.dueSession==null || u.dueSession>state.sessionNumber || u.status==='known') return false;
+  const reviewMode=u.reviewMode||'word';
+  if(mode==='mix') return true;
+  return reviewMode===mode;
+}
+function buildSession(){
+  const mode=state.practiceMode||'mix';
+  state.sessionNumber=(state.sessionNumber||0)+1;
+  const due = state.units
+    .filter(u=>dueForMode(u,mode))
+    .sort((a,b)=>(a.dueSession-b.dueSession)||((a.lastSeen||0)-(b.lastSeen||0)))
+    .slice(0,2);
+
+  const tasks=due.map(u=>({type:'recall', unitId:u.id, reviewKind:u.reviewKind||'verify', reviewMode:u.reviewMode||'word'}));
+  const used=new Set(due.map(u=>u.id));
+
+  const addWords=(count)=>{
+    for(const u of state.units){
+      if(count<=0) break;
+      if(!used.has(u.id) && u.recognition<1 && availableForPractice(u)){
+        tasks.push({type:'word',unitId:u.id}); used.add(u.id); count--;
+      }
+    }
+  };
+  const addSentences=(count)=>{
+    for(const u of state.units){
+      if(count<=0) break;
+      if(!used.has(u.id) && u.production<1 && availableForPractice(u)){
+        tasks.push({type:'sentence',unitId:u.id}); used.add(u.id); count--;
+      }
+    }
+  };
+
+  if(mode==='word') addWords(Math.max(0,4-tasks.length));
+  else if(mode==='sentence') addSentences(Math.max(0,4-tasks.length));
+  else {
+    addWords(1);
+    addSentences(1);
+    // If there were no reviews, keep the mixed session short but useful.
+    if(tasks.length<4){
+      if(tasks.filter(t=>t.type==='word').length<2) addWords(1);
+      if(tasks.length<4 && tasks.filter(t=>t.type==='sentence').length<2) addSentences(1);
+    }
+  }
+
+  const mixed=shuffleTasks(tasks).slice(0,4);
+  if(!mixed.length){
+    state.lastSessionSummary={before:leftCount(),after:leftCount(),strengthened:0,mistakes:0,duration:0};
+    state.screen='done'; save(); render(); return;
+  }
+  state.session = { number:state.sessionNumber, mode, tasks:mixed, index:0, before:leftCount(), strengthened:0, mistakes:0, startedAt:Date.now(), response:null, listenPlayed:false, listenError:null };
+  state.screen='exercise'; save(); render();
+  requestAnimationFrame(()=>window.scrollTo(0,0));
+}
+
+function buildListenSession(){
+  state.sessionNumber=(state.sessionNumber||0)+1;
+  const due=state.units
+    .filter(u=>u.listenDueSession!=null && u.listenDueSession<=state.sessionNumber)
+    .sort((a,b)=>(a.listenDueSession-b.listenDueSession)||((a.listenLastSeen||0)-(b.listenLastSeen||0)))
+    .slice(0,2);
+  const tasks=due.map(u=>({type:'listen',unitId:u.id,reviewKind:'forget-listen'}));
+  const used=new Set(due.map(u=>u.id));
+  const candidates=state.units
+    .filter(u=>!used.has(u.id) && u.listenDueSession==null && (u.lastSessionSeen==null || u.lastSessionSeen<state.sessionNumber-1))
+    .sort((a,b)=>(a.listenAttempts||0)-(b.listenAttempts||0)||((a.listenLastSeen||0)-(b.listenLastSeen||0)));
+  for(const u of candidates){
+    if(tasks.length>=4) break;
+    tasks.push({type:'listen',unitId:u.id,reviewKind:'listen'}); used.add(u.id);
+  }
+  // If the recent-session guard leaves too few candidates, fill from any non-pending item.
+  if(tasks.length<4){
+    for(const u of state.units){
+      if(tasks.length>=4) break;
+      if(!used.has(u.id) && u.listenDueSession==null){tasks.push({type:'listen',unitId:u.id,reviewKind:'listen'});used.add(u.id);}
+    }
+  }
+  const mixed=shuffleTasks(tasks).slice(0,4);
+  if(!mixed.length){
+    state.lastSessionSummary={before:leftCount(),after:leftCount(),strengthened:0,mistakes:0,duration:0,mode:'listen'};
+    state.screen='done'; save(); render(); return;
+  }
+  state.session={number:state.sessionNumber,mode:'listen',tasks:mixed,index:0,before:leftCount(),strengthened:0,mistakes:0,startedAt:Date.now(),response:null,listenPlayed:false,listenError:null};
+  state.screen='exercise'; save(); render();
+  requestAnimationFrame(()=>window.scrollTo(0,0));
+}
+
+function buildPronounceSession(){
+  state.sessionNumber=(state.sessionNumber||0)+1;
+  const due=state.units
+    .filter(u=>u.pronounceDueSession!=null && u.pronounceDueSession<=state.sessionNumber)
+    .sort((a,b)=>(a.pronounceDueSession-b.pronounceDueSession)||((a.pronounceLastSeen||0)-(b.pronounceLastSeen||0)))
+    .slice(0,2);
+  const tasks=due.map(u=>({type:'pronounce',unitId:u.id,reviewKind:'forget-pronounce'}));
+  const used=new Set(due.map(u=>u.id));
+  let candidates=state.units
+    .filter(u=>!used.has(u.id) && u.pronounceDueSession==null && (u.recognition>0 || u.production>0 || u.listenAttempts>0))
+    .sort((a,b)=>(a.pronounceAttempts||0)-(b.pronounceAttempts||0)||((a.pronounceLastSeen||0)-(b.pronounceLastSeen||0)));
+  if(candidates.length<4) candidates=candidates.concat(state.units.filter(u=>!used.has(u.id)&&u.pronounceDueSession==null&&!candidates.includes(u)));
+  for(const u of candidates){
+    if(tasks.length>=4) break;
+    tasks.push({type:'pronounce',unitId:u.id,reviewKind:'pronounce'}); used.add(u.id);
+  }
+  if(!tasks.length){ state.screen='home'; save(); render(); return; }
+  state.session={number:state.sessionNumber,mode:'pronounce',tasks:shuffleTasks(tasks).slice(0,4),index:0,before:leftCount(),strengthened:0,mistakes:0,startedAt:Date.now(),response:null,listenPlayed:false,listenError:null,pronounceListening:false,pronounceError:null,pronounceFailureRecorded:false};
+  state.screen='exercise'; save(); render(); requestAnimationFrame(()=>window.scrollTo(0,0));
+}
+
+function currentTask(){ return state.session?.tasks[state.session.index]; }
+let activeRecognition=null;
+
+function nextTask(){
+  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  if(activeRecognition){ try{activeRecognition.abort();}catch(e){} activeRecognition=null; }
+  const s=state.session;
+  s.response=null;
+  s.listenPlayed=false;
+  s.listenError=null;
+  s.pronounceListening=false;
+  s.pronounceError=null;
+  s.pronounceFailureRecorded=false;
+  s.index++;
+  if(s.index>=s.tasks.length){
+    const summary={ before:s.before, after:leftCount(), strengthened:s.strengthened, mistakes:s.mistakes, duration:Math.max(1,Math.round((Date.now()-s.startedAt)/60000)) };
+    state.lastSessionSummary=summary; state.session=null; state.screen='done'; save(); render();
+  } else { save(); render(); requestAnimationFrame(()=>window.scrollTo(0,0)); }
+}
+function go(screen){ if('speechSynthesis' in window) window.speechSynthesis.cancel(); if(activeRecognition){try{activeRecognition.abort();}catch(e){} activeRecognition=null;} state.screen=screen; save(); render(); }
+
+function renderTop(){ return `<div class="topbar"><div class="brand">Noma</div><div class="lang">English</div></div>`; }
+function renderNav(active){ return `<div class="bottom-dock"><nav class="bottom-nav"><button class="nav-btn ${active==='home'?'active':''}" onclick="go('home')">Hoy</button><button class="nav-btn ${active==='forget'?'active':''}" onclick="go('forget')">Forget Me</button><button class="nav-btn ${active==='progress'?'active':''}" onclick="go('progress')">Progreso</button><button class="nav-btn ${active==='pack'?'active':''}" onclick="go('pack')">Pack</button></nav></div>`; }
+
+function home(){
+  const known=knownCount(), learned=learnedCount(), left=leftCount(), forget=unstableCount();
+  const listenStats=listenFirstStats();
+  const pronounceStats=pronounceFirstStats();
+  const mode=state.practiceMode||'mix';
+  const nextSession=(state.sessionNumber||0)+1;
+  const dueWord=state.units.filter(u=>u.dueSession!=null && u.dueSession<=nextSession && u.status!=='known' && (u.reviewMode||'word')==='word').length;
+  const dueSentence=state.units.filter(u=>u.dueSession!=null && u.dueSession<=nextSession && u.status!=='known' && (u.reviewMode||'word')==='sentence').length;
+  const dueListen=state.units.filter(u=>u.listenDueSession!=null && u.listenDueSession<=nextSession).length;
+  const duePronounce=state.units.filter(u=>u.pronounceDueSession!=null && u.pronounceDueSession<=nextSession).length;
+  const pct=Math.round(known/PACK_SIZE*100);
+  const modeCopy={
+    word:['Word','Inglés → castellano. Cuatro pruebas cortas.'],
+    sentence:['Sentence','Castellano → inglés. Cuatro frases.'],
+    mix:['Combinado','Word y Sentence mezclados, sin repetir la misma unidad.']
+  }[mode];
+  const relevantDue=mode==='word'?dueWord:mode==='sentence'?dueSentence:(dueWord+dueSentence);
+  return `${renderTop()}
+    <section class="hero"><div class="eyebrow">Everyday English</div><div class="big-number">${left}<span>left</span></div><div class="substat">${learned} learned · ${known} consolidated · ${forget} en Forget Me</div><div class="progress-line"><div style="width:${pct}%"></div></div></section>
+    <section class="card session-card">
+      <div class="session-title"><strong>Practicar</strong><span>${relevantDue?'con repasos':'4 ejercicios'}</span></div>
+      <div class="mode-picker" role="group" aria-label="Modo de práctica">
+        <button class="mode-btn ${mode==='word'?'active':''}" onclick="setPracticeMode('word')">Word</button>
+        <button class="mode-btn ${mode==='sentence'?'active':''}" onclick="setPracticeMode('sentence')">Sentence</button>
+        <button class="mode-btn ${mode==='mix'?'active':''}" onclick="setPracticeMode('mix')">Combinado</button>
+      </div>
+      <div class="mode-note"><b>${modeCopy[0]}</b> · ${modeCopy[1]}</div>
+      ${relevantDue?`<div class="session-row"><span>Forget Me listo</span><em>${Math.min(2,relevantDue)}</em></div>`:''}
+      <button class="primary" onclick="buildSession()">Empezar</button>
+    </section>
+    <section class="card listen-home-card">
+      <div class="session-title"><strong>Listen Once</strong><span>${dueListen?'con repaso':'4 audios'}</span></div>
+      <p class="listen-home-copy">Escucha una frase una sola vez y escribe exactamente lo que hayas entendido.</p>
+      <div class="listen-metric"><span>Comprensión a primera escucha</span><b>${listenStats.pct==null?'—':listenStats.pct+'%'}</b></div>
+      ${dueListen?`<div class="session-row"><span>Forget Me listo</span><em>${Math.min(2,dueListen)}</em></div>`:''}
+      <button class="secondary" onclick="buildListenSession()">Empezar Listen Once</button>
+    </section>
+    <section class="card pronounce-home-card">
+      <div class="session-title"><strong>Pronounce</strong><span>${duePronounce?'con repaso':'4 palabras'}</span></div>
+      <p class="pronounce-home-copy">Escucha una palabra, repítela y comprueba si el reconocimiento de voz la entiende.</p>
+      <div class="pronounce-metric"><span>Reconocido a la primera</span><b>${pronounceStats.pct==null?'—':pronounceStats.pct+'%'}</b></div>
+      ${duePronounce?`<div class="session-row"><span>Pronounce pendiente</span><em>${Math.min(2,duePronounce)}</em></div>`:''}
+      <button class="secondary" onclick="buildPronounceSession()">Empezar Pronounce</button>
+    </section>
+    <section class="card reader-home-card">
+      <div class="session-title"><strong>Tiny Reader</strong><span>2 textos · 6 preguntas</span></div>
+      <p class="reader-home-copy">Lecturas breves del pack Everyday English. El texto es fijo y las preguntas tienen una respuesta inequívoca.</p>
+      <button class="secondary" onclick="go('readerLibrary')">Abrir Tiny Reader</button>
+    </section>
+    ${forget ? `<button class="forget-summary" onclick="go('forget')"><span><b>${forget}</b> en Forget Me</span><em>Ver pendientes →</em></button>` : ''}
+    <p class="note">Intro corrige, pero nunca salta al ejercicio siguiente. Noma mantiene el resultado en pantalla hasta que tú pulses Siguiente.</p>
+    ${renderNav('home')}`;
+}
+
+function exercise(){
+  const task=currentTask(); if(!task) return home();
+  const u=getUnit(task.unitId), s=state.session, n=s.tasks.length, idx=s.index+1, progress=Math.round((idx-1)/n*100);
+  let body='';
+  if(task.type==='word') body=wordTask(u);
+  if(task.type==='sentence') body=sentenceTask(u);
+  if(task.type==='recall') body=recallTask(u);
+  if(task.type==='listen') body=listenTask(u);
+  if(task.type==='pronounce') body=pronounceTask(u);
+  return `<div class="exercise-wrap"><div class="exercise-head"><button class="back" onclick="go('home')">←</button><div class="step-track"><div style="width:${progress}%"></div></div><div class="step-count">${idx}/${n}</div></div><div class="exercise-main">${body}</div></div>`;
+}
+
+function resultActions(ok){
+  return `<div class="word-actions"><div class="status-chip ${ok?'ok':'bad'}">${ok?'Correcto':'Pendiente'}</div><button class="primary" onclick="nextTask()">Siguiente</button></div>`;
+}
+function wordTask(u){
+  const r=state.session.response;
+  if(!r){
+    return `<div class="exercise-content"><div class="exercise-type">Word</div>
+      <div class="prompt-word">${escapeHtml(u.term)}</div>
+      <div class="hint">Traduce al castellano.</div>
+      <div class="answer-zone"><input id="wordInput" class="answer-input" autocomplete="off" autocapitalize="sentences" placeholder="Significado…" onkeydown="if(event.key==='Enter'){event.preventDefault();checkWord()}">
+      <div class="word-actions"><button class="secondary" onclick="dontKnowWord()">No la sé</button><button class="primary" onclick="checkWord()">Comprobar</button></div></div></div>`;
+  }
+  const display=r.answer ? escapeHtml(r.answer) : 'No la sabía';
+  return `<div class="exercise-content"><div class="exercise-type">Word</div>
+    <div class="prompt-word">${escapeHtml(u.term)}</div>
+    <div class="hint">Traduce al castellano.</div>
+    <div class="answer-zone"><div class="answer-display ${r.answer?'':'muted'}">${display}</div>${resultActions(r.ok)}</div>
+    <div class="result-detail">
+      <div class="reveal"><strong>${escapeHtml(u.meaning)}</strong><div class="example">${escapeHtml(u.en)}<small>${escapeHtml(u.es)}</small></div></div>
+      <div class="feedback ${r.ok?'ok':'bad'}"><b>${r.ok?'Correcto.':(r.explicitDontKnow?'La dejamos pendiente.':'Todavía no.')}</b>${r.ok?'La respuesta queda registrada.':'Pasa a Forget Me y volverá más adelante, no inmediatamente.'}</div>
+    </div></div>`;
+}
+function levenshtein(a,b){
+  const prev=Array.from({length:b.length+1},(_,i)=>i);
+  for(let i=1;i<=a.length;i++){
+    const cur=[i];
+    for(let j=1;j<=b.length;j++) cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    for(let j=0;j<cur.length;j++) prev[j]=cur[j];
+  }
+  return prev[b.length];
+}
+function acceptedMeanings(u){
+  const fromMeaning=u.meaning.split('/').map(x=>x.trim()).filter(Boolean);
+  const aliases=WORD_ALIASES[u.term]||[];
+  return [...new Set([...fromMeaning,...aliases].map(normalize).filter(Boolean))];
+}
+function meaningMatches(answer, u){
+  const ans=normalize(answer);
+  if(ans.length<2) return false;
+  return acceptedMeanings(u).some(x=>{
+    if(ans===x) return true;
+    if(Math.min(ans.length,x.length)>=5 && levenshtein(ans,x)<=1) return true;
+    // Multi-word equivalents can contain an optional article/pronoun without being rejected.
+    const A=ans.split(' ').filter(w=>w.length>1), B=x.split(' ').filter(w=>w.length>1);
+    if(A.length>1 && B.length>1){
+      const common=B.filter(w=>A.includes(w)).length;
+      if(common/B.length>=0.8 && common/A.length>=0.65) return true;
+    }
+    return false;
+  });
+}
+function clozeData(u){
+  if(CLOZE_OVERRIDES[u.term]) return {...CLOZE_OVERRIDES[u.term], es:CLOZE_OVERRIDES[u.term].es||u.es};
+  const source=u.en, lower=source.toLowerCase(), needle=u.term.toLowerCase();
+  const idx=lower.indexOf(needle);
+  if(idx>=0){
+    return {prompt:source.slice(0,idx)+'_____'+source.slice(idx+needle.length), answer:u.term, es:u.es};
+  }
+  return {prompt:u.en, answer:u.term, es:u.es};
+}
+function checkWord(){
+  const input=document.getElementById('wordInput')?.value||''; if(!input.trim()) return;
+  const u=getUnit(currentTask().unitId), s=state.session;
+  const ok=meaningMatches(input,u);
+  if(ok){
+    markSuccess(u,'recognition'); s.strengthened++;
