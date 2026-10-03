@@ -1,12 +1,22 @@
-# Noma v0.14 — HTTPS test build
+# Noma v0.15
 
-Static build prepared for GitHub Pages.
+Noma is a local-first language-learning prototype built around finite progress: learn, recall, consolidate, and remove what no longer needs attention.
 
-## Goal
-Validate **Pronounce** on Android Chrome using direct Web Speech recognition over HTTPS. There is no Gboard/dictation fallback.
+## Current modules
+- Word
+- Sentence
+- Combined practice
+- Forget Me
+- Listen Once
+- Tiny Reader
+- Pronounce
+- Wrong Book
+
+## Wrong Book
+Wrong Book tracks only Word and Sentence errors. A first failure is observed; a second failure of the same item/type marks it as recurrent. Two later correct answers without another failure mark it as resolved.
 
 ## Data
-Noma remains local-first. Progress is stored in the browser localStorage for this prototype. Export a backup from the previous local-file build and import it after opening the GitHub Pages URL because browser storage is isolated by origin.
+The prototype stores progress in browser localStorage. The state schema is versioned and backups can be exported/imported. The planned Android version will move persistence to local SQLite.
 
-## GitHub Pages
-Publish the repository root from the `main` branch.
+## Web build
+The current prototype is published through GitHub Pages over HTTPS so Pronounce can use direct browser speech recognition without a keyboard-dictation fallback.
