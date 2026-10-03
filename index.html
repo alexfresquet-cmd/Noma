@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f5f3ee" />
-  <title>Noma — MVP v0.17</title>
+  <title>Noma — MVP v0.18</title>
   <style>
 :root {
   --bg: #f5f3ee;
@@ -291,7 +291,7 @@ button { cursor: pointer; }
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.17';
+const APP_VERSION = '0.18';
 const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
@@ -634,9 +634,10 @@ function normalize(s=''){
 }
 function escapeHtml(s=''){return s.replace(/[&<>"]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
 function knownCount(){ return state.units.filter(u=>u.status==='known').length; }
-// A unit stops counting as 'left' after the learner has successfully recognised
-// and produced it. A later failed recall can put it back into pending.
-function learnedCount(){ return state.units.filter(u=>u.recognition>=1 && u.production>=1 && u.status!=='unstable').length; }
+// "left" is the number of pack units that still need first-pass evidence.
+// A first correct Word OR Sentence removes the unit from left. If that unit
+// later becomes unstable after a failure, it returns to left until recovered.
+function learnedCount(){ return state.units.filter(u=>((u.recognition||0)>=1 || (u.production||0)>=1) && u.status!=='unstable').length; }
 function leftCount(){ return PACK_SIZE - learnedCount(); }
 function textForgetCount(){ return state.units.filter(u=>u.reviewKind==='forget' && u.dueSession!=null).length; }
 function listenForgetCount(){ return state.units.filter(u=>u.listenDueSession!=null).length; }
@@ -943,7 +944,7 @@ function home(){
   const dueSentence=state.units.filter(u=>u.dueSession!=null && u.dueSession<=nextSession && u.status!=='known' && (u.reviewMode||'word')==='sentence').length;
   const dueListen=state.units.filter(u=>u.listenDueSession!=null && u.listenDueSession<=nextSession).length;
   const duePronounce=state.units.filter(u=>u.pronounceDueSession!=null && u.pronounceDueSession<=nextSession).length;
-  const pct=Math.round(known/PACK_SIZE*100);
+  const pct=Math.round(learned/PACK_SIZE*100);
   const modeCopy={
     word:['Word','Inglés → castellano. Cuatro pruebas cortas.'],
     sentence:['Sentence','Castellano → inglés. Cuatro frases.'],
@@ -951,7 +952,7 @@ function home(){
   }[mode];
   const relevantDue=mode==='word'?dueWord:mode==='sentence'?dueSentence:(dueWord+dueSentence);
   return `${renderTop()}
-    <section class="hero"><div class="eyebrow">Everyday English</div><div class="big-number">${left}<span>left</span></div><div class="substat">${learned} learned · ${known} consolidated · ${forget} en Forget Me</div><div class="progress-line"><div style="width:${pct}%"></div></div></section>
+    <section class="hero"><div class="eyebrow">Everyday English</div><div class="big-number">${left}<span>left</span></div><div class="substat">${learned} fuera de pendientes · ${known} consolidated · ${forget} en Forget Me</div><div class="progress-line"><div style="width:${pct}%"></div></div></section>
     <section class="card session-card">
       <div class="session-title"><strong>Practicar</strong><span>${relevantDue?'con repasos':'4 ejercicios'}</span></div>
       <div class="mode-picker" role="group" aria-label="Modo de práctica">
@@ -1333,7 +1334,7 @@ function pronounceTask(u){
 
 function done(){
   const x=state.lastSessionSummary||{before:leftCount(),after:leftCount(),strengthened:0,mistakes:0,duration:1};
-  return `${renderTop()}<section class="done"><h1>Done.</h1><p>${x.strengthened} elementos reforzados.<br>${x.mistakes ? `${x.mistakes} necesitan más tiempo.`:'Nada pendiente de esta sesión.'}</p><div class="delta">${x.before} → ${x.after} left</div><p>${x.after===x.before?'No todo progreso reduce el contador inmediatamente. Noma espera evidencia de recuerdo y producción.':'Algo ha quedado consolidado y ha desaparecido de pendientes.'}</p><button class="primary" onclick="go('home')">Volver a inicio</button></section>`;
+  return `${renderTop()}<section class="done"><h1>Done.</h1><p>${x.strengthened} elementos reforzados.<br>${x.mistakes ? `${x.mistakes} necesitan más tiempo.`:'Nada pendiente de esta sesión.'}</p><div class="delta">${x.before} → ${x.after} left</div><p>${x.after===x.before?'No ha salido ninguna unidad nueva de pendientes en esta sesión. Los aciertos pueden haber reforzado unidades que ya estaban abiertas.':`${x.before-x.after} unidad${x.before-x.after===1?'':'es'} ha${x.before-x.after===1?'':'n'} salido de pendientes.`}</p><button class="primary" onclick="go('home')">Volver a inicio</button></section>`;
 }
 
 function progress(){
@@ -1342,9 +1343,9 @@ function progress(){
   const listenStats=listenFirstStats();
   const pronounceStats=pronounceFirstStats();
   const pct=Math.round(learned/PACK_SIZE*100);
-  return `${renderTop()}<h1 class="section-title">Progreso</h1><p class="section-sub">"Left" baja cuando ya has demostrado reconocimiento + producción. La consolidación posterior se mide aparte.</p>
+  return `${renderTop()}<h1 class="section-title">Progreso</h1><p class="section-sub">"Left" mide unidades todavía pendientes de una primera evidencia correcta en Word o Sentence. La consolidación posterior se mide aparte.</p>
     <div class="card"><div class="eyebrow">Everyday English</div><div class="big-number" style="font-size:64px">${left}<span>left</span></div><div class="progress-line"><div style="width:${pct}%"></div></div></div>
-    <div class="stat-grid"><div class="stat"><b>${learned}</b><span>Learned</span></div><div class="stat"><b>${known}</b><span>Consolidated</span></div><div class="stat"><b>${unstable}</b><span>Forget Me</span></div><div class="stat"><b>${mistakes}</b><span>Fallos registrados</span></div></div>
+    <div class="stat-grid"><div class="stat"><b>${learned}</b><span>Fuera de pendientes</span></div><div class="stat"><b>${known}</b><span>Consolidated</span></div><div class="stat"><b>${unstable}</b><span>Forget Me</span></div><div class="stat"><b>${mistakes}</b><span>Fallos registrados</span></div></div>
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${listenStats.pct==null?'—':listenStats.pct+'%'}</strong><span>first-listen comprehension</span></div><p class="note" style="margin-bottom:0">${listenStats.attempted?`${listenStats.correct} de ${listenStats.attempted} frases nuevas entendidas a la primera.`:'Todavía no has hecho Listen Once.'}</p></div>
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${pronounceStats.pct==null?'—':pronounceStats.pct+'%'}</strong><span>pronounce recognizability</span></div><p class="note" style="margin-bottom:0">${pronounceStats.attempted?`${pronounceStats.correct} de ${pronounceStats.attempted} palabras nuevas reconocidas a la primera.`:'Todavía no has hecho Pronounce.'}</p></div>
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${Object.values(state.readerProgress||{}).filter(x=>x.attempts>0).length} / ${READER_TEXTS.length}</strong><span>Tiny Reader</span></div><p class="note" style="margin-bottom:0">Textos de prueba completados. Las preguntas de lectura no alteran el contador de palabras.</p></div>
@@ -1436,7 +1437,7 @@ function forgetMe(){
 }
 
 function pack(){
-  return `${renderTop()}<h1 class="section-title">Everyday English</h1><p class="section-sub">El MVP usa un pack finito de ${PACK_SIZE} unidades frecuentes. No hay otro pack activo.</p><div class="card"><div class="session-title"><strong>${learnedCount()} / ${PACK_SIZE}</strong><span>learned</span></div><div class="progress-line"><div style="width:${learnedCount()}%"></div></div><p class="note" style="margin-bottom:0">Una unidad deja de contar como left tras reconocimiento + producción. El recuerdo posterior decide si queda consolidada o vuelve a Forget Me.</p></div><div class="list"><div class="list-item"><span>Pack activo</span><span>Everyday English</span></div><div class="list-item"><span>Tamaño</span><span>${PACK_SIZE}</span></div><div class="list-item"><span>Otros packs</span><span>No disponibles en MVP</span></div></div>${renderNav('pack')}`;
+  return `${renderTop()}<h1 class="section-title">Everyday English</h1><p class="section-sub">El MVP usa un pack finito de ${PACK_SIZE} unidades frecuentes. No hay otro pack activo.</p><div class="card"><div class="session-title"><strong>${learnedCount()} / ${PACK_SIZE}</strong><span>fuera de pendientes</span></div><div class="progress-line"><div style="width:${learnedCount()}%"></div></div><p class="note" style="margin-bottom:0">Una unidad deja de contar como left con su primer acierto en Word o Sentence. Si después falla y queda inestable, vuelve a pendientes hasta recuperarse. Consolidated sigue exigiendo evidencia más fuerte.</p></div><div class="list"><div class="list-item"><span>Pack activo</span><span>Everyday English</span></div><div class="list-item"><span>Tamaño</span><span>${PACK_SIZE}</span></div><div class="list-item"><span>Otros packs</span><span>No disponibles en MVP</span></div></div>${renderNav('pack')}`;
 }
 
 
