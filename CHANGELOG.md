@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.17
+- Recurrent errors with one successful recovery now remain visible as **Mejorando · 1/2**.
+- Fixed the `left` counter after successful Forget Me recalls.
+- A correct Word recall now credits missing recognition; a correct Sentence recall credits missing production.
+- This prevents previously failed units from remaining permanently pending after successful recovery.
+- Preserves the v4 data schema and v0.16 progress.
+
 ## v0.16
 - Merged Wrong Book into Forget Me.
 - Removed the separate Wrong Book card and screen.
