@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f5f3ee" />
-  <title>Noma — MVP v0.16</title>
+  <title>Noma — MVP v0.17</title>
   <style>
 :root {
   --bg: #f5f3ee;
@@ -276,6 +276,7 @@ button { cursor: pointer; }
 .wrong-title{font-size:18px;font-weight:740;line-height:1.25;letter-spacing:-.025em}
 .wrong-badge{font-size:11px;font-weight:780;border-radius:999px;padding:5px 8px;background:var(--soft);color:var(--muted);white-space:nowrap}
 .wrong-badge.recurrent{background:#f4e8e5;color:var(--danger)}
+.wrong-badge.improving{background:#eef0e7;color:#586143}
 .wrong-badge.resolved{background:#e7efe9;color:#315d47}
 .wrong-answer{font-size:14px;line-height:1.45;color:var(--muted)}
 .wrong-answer b{color:var(--text)}
@@ -290,7 +291,7 @@ button { cursor: pointer; }
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.16';
+const APP_VERSION = '0.17';
 const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
@@ -1153,6 +1154,10 @@ function checkRecall(){
   const mode=currentTask().reviewMode || u.reviewMode || 'word';
   const ok = mode==='sentence' ? sentenceMatches(input,u.en) : meaningMatches(input,u);
   if(ok){
+    // A successful recall proves the underlying skill too. Without this,
+    // an item first failed in Word/Sentence could remain permanently in "left".
+    if(mode==='word' && (u.recognition||0)<1) u.recognition=1;
+    if(mode==='sentence' && (u.production||0)<1) u.production=1;
     markSuccess(u,'recall'); recordRight(u,mode);
     const pattern=state.wrongBook?.[wrongKey(u,mode)];
     if(pattern && !pattern.resolvedAt && (pattern.failures||0)>=2) scheduleReview(u,3,'verify',mode);
@@ -1353,7 +1358,12 @@ function forgetMe(){
   const now=state.sessionNumber||0;
   const recurrent=wrongEntries()
     .filter(e=>!e.resolvedAt&&(e.failures||0)>=2)
-    .sort((a,b)=>(b.failures-a.failures)||((b.lastWrongAt||0)-(a.lastWrongAt||0)));
+    .sort((a,b)=>{
+      const ai=(a.successesAfterFailure||0)>0, bi=(b.successesAfterFailure||0)>0;
+      if(ai!==bi) return ai?1:-1;
+      if((b.failures||0)!==(a.failures||0)) return (b.failures||0)-(a.failures||0);
+      return (b.lastWrongAt||0)-(a.lastWrongAt||0);
+    });
   const recurrentKeys=new Set(recurrent.map(e=>`${e.unitId}:${e.mode}`));
   const resolved=wrongEntries()
     .filter(e=>!!e.resolvedAt&&(e.failures||0)>=2)
@@ -1396,9 +1406,12 @@ function forgetMe(){
     const due=isSentence||e.mode==='word'
       ? (u.dueSession!=null && (u.reviewMode||'word')===e.mode ? u.dueSession : null)
       : null;
+    const improving=status!=='resolved' && (e.successesAfterFailure||0)>0;
     const badge=status==='resolved'
       ? '<span class="wrong-badge resolved">Resuelto</span>'
-      : `<span class="wrong-badge recurrent">${e.failures} fallos</span>`;
+      : improving
+        ? `<span class="wrong-badge improving">Mejorando · ${e.successesAfterFailure}/2</span>`
+        : `<span class="wrong-badge recurrent">${e.failures} fallos</span>`;
     const last=e.lastAnswer
       ? `<div class="wrong-answer">Última respuesta: <b>${escapeHtml(e.lastAnswer)}</b></div>`
       : '<div class="wrong-answer">La última vez marcaste que no la sabías.</div>';
