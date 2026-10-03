@@ -302,7 +302,7 @@ const SQLITE_DB_SCHEMA_VERSION = 1;
 const EMERGENCY_STORAGE_KEY = 'noma_beta_emergency_state_v1';
 
 
-// Deterministic grading for the local MVP. These are accepted equivalents,
+// Deterministic grading for the local Beta. These are accepted equivalents,
 // not user overrides. A future product can replace this with a semantic grader.
 const WORD_ALIASES = {
   'although':['aunque','a pesar de que','si bien'],
@@ -940,7 +940,7 @@ function migrateState(x){
       pronounceLastSeen:Number.isFinite(u.pronounceLastSeen)?u.pronounceLastSeen:null,
       pronounceLastSessionSeen:Number.isFinite(u.pronounceLastSessionSeen)?u.pronounceLastSessionSeen:null};
   });
-  // Sessions from the first MVP can contain tasks created with the old repeat logic.
+  // Sessions from the first prototype can contain tasks created with the old repeat logic.
   // Discard only the in-progress session; all learning progress is preserved.
   x.session = null;
   if(x.screen==='exercise') x.screen='home';
@@ -1787,7 +1787,7 @@ function forgetMe(){
 }
 
 function pack(){
-  return `${renderTop()}<h1 class="section-title">Everyday English</h1><p class="section-sub">El MVP usa un pack finito de ${PACK_SIZE} unidades frecuentes. No hay otro pack activo.</p><div class="card"><div class="session-title"><strong>${combinedProgressCount()} / ${PACK_SIZE}</strong><span>Word + Sentence</span></div><div class="progress-line"><div style="width:${combinedProgressCount()}%"></div></div><p class="note" style="margin-bottom:0">Word y Sentence tienen progreso independiente. El total solo cuenta una unidad cuando ambos modos están superados; la memoria confirmada se mide aparte.</p><div class="session-row" style="margin-top:16px"><span>Word</span><em>${wordProgressCount()}/${PACK_SIZE}</em></div><div class="session-row"><span>Sentence</span><em>${sentenceProgressCount()}/${PACK_SIZE}</em></div></div><div class="list"><div class="list-item"><span>Pack activo</span><span>Everyday English</span></div><div class="list-item"><span>Tamaño</span><span>${PACK_SIZE}</span></div><div class="list-item"><span>Otros packs</span><span>No disponibles en MVP</span></div></div>${renderNav('pack')}`;
+  return `${renderTop()}<h1 class="section-title">Everyday English</h1><p class="section-sub">La Beta usa un pack finito de ${PACK_SIZE} unidades frecuentes. No hay otro pack activo.</p><div class="card"><div class="session-title"><strong>${combinedProgressCount()} / ${PACK_SIZE}</strong><span>Word + Sentence</span></div><div class="progress-line"><div style="width:${combinedProgressCount()}%"></div></div><p class="note" style="margin-bottom:0">Word y Sentence tienen progreso independiente. El total solo cuenta una unidad cuando ambos modos están superados; la memoria confirmada se mide aparte.</p><div class="session-row" style="margin-top:16px"><span>Word</span><em>${wordProgressCount()}/${PACK_SIZE}</em></div><div class="session-row"><span>Sentence</span><em>${sentenceProgressCount()}/${PACK_SIZE}</em></div></div><div class="list"><div class="list-item"><span>Pack activo</span><span>Everyday English</span></div><div class="list-item"><span>Tamaño</span><span>${PACK_SIZE}</span></div><div class="list-item"><span>Otros packs</span><span>No disponibles en Beta 1</span></div></div>${renderNav('pack')}`;
 }
 
 
@@ -1958,7 +1958,7 @@ async function importBackup(event){
 function seedForgetMe(){
   state.units.slice(0,3).forEach((u,i)=>{u.status='unstable';u.due=true;u.dueSession=(state.sessionNumber||0)+1+i;u.reviewKind='forget';u.reviewMode=i%2?'sentence':'word';u.mistakes=Math.max(1,u.mistakes);u.recognition=Math.max(1,u.recognition);}); save(); render();
 }
-function resetDemo(){ if(confirm('¿Reiniciar todo el progreso del MVP?')){state=initialState();save();render();} }
+function resetDemo(){ if(confirm('¿Reiniciar todo el progreso de la Beta?')){state=initialState();save();render();} }
 
 function render(){
   const app=document.getElementById('app');
