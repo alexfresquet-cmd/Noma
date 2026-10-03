@@ -7,7 +7,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>Noma — MVP v0.19</title>
+  <title>Noma — Beta 1</title>
   <style>
 :root {
   --bg: #f5f3ee;
@@ -290,14 +290,16 @@ button { cursor: pointer; }
 </style>
 </head>
 <body>
-  <main id="app" class="app-shell" aria-live="polite"></main>
+  <main id="app" class="app-shell" aria-live="polite"><div class="topbar"><div class="brand">Noma</div><div class="lang">Beta 1</div></div><section class="card"><strong>Preparando tus datos…</strong><p class="note">Abriendo el almacenamiento local.</p></section></main>
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.19';
+const APP_VERSION = '0.20.0-beta.1';
 const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
+const SQLITE_DB_SCHEMA_VERSION = 1;
+const EMERGENCY_STORAGE_KEY = 'noma_beta_emergency_state_v1';
 
 
 // Deterministic grading for the local MVP. These are accepted equivalents,
@@ -704,22 +706,136 @@ function initialState(){
   };
 }
 
+const SQLiteClient = {
+  worker:null,
+  seq:0,
+  pending:new Map(),
+  readyPromise:null,
+  ensure(){
+    if(this.readyPromise) return this.readyPromise;
+    this.readyPromise=new Promise((resolve,reject)=>{
+      const worker=new Worker('./db-worker.js?v=beta1',{type:'module'});
+      this.worker=worker;
+      const timeout=setTimeout(()=>reject(new Error('SQLite tardó demasiado en iniciar')),15000);
+      worker.onmessage=(event)=>{
+        const msg=event.data||{};
+        if(msg.type==='ready'){
+          clearTimeout(timeout);
+          if(msg.ok) resolve(msg);
+          else reject(new Error(msg.error?.message||'SQLite no pudo iniciarse'));
+          return;
+        }
+        if(msg.id!=null){
+          const pending=this.pending.get(msg.id);
+          if(!pending) return;
+          this.pending.delete(msg.id);
+          if(msg.ok) pending.resolve(msg.result);
+          else pending.reject(new Error(msg.error?.message||'Error de SQLite'));
+        }
+      };
+      worker.onerror=(event)=>{
+        clearTimeout(timeout);
+        reject(new Error(event?.message||'No se pudo abrir el worker de SQLite'));
+      };
+    });
+    return this.readyPromise;
+  },
+  async request(type,payload=null){
+    await this.ensure();
+    return new Promise((resolve,reject)=>{
+      const id=++this.seq;
+      this.pending.set(id,{resolve,reject});
+      this.worker.postMessage({id,type,payload});
+    });
+  },
+  load(){ return this.request('load'); },
+  save(json,stateSchema,updatedAt){ return this.request('save',{json,stateSchema,updatedAt}); },
+  integrity(){ return this.request('integrity'); }
+};
+
+function localCandidate(){
+  try{
+    const emergencyRaw=localStorage.getItem(EMERGENCY_STORAGE_KEY);
+    if(emergencyRaw){
+      const envelope=JSON.parse(emergencyRaw);
+      if(envelope?.state?.units?.length===PACK_SIZE){
+        return {state:envelope.state,updatedAt:Number(envelope.updatedAt)||0,source:'emergency'};
+      }
+    }
+  }catch(e){}
+  try{
+    const legacyRaw=localStorage.getItem(STORAGE_KEY);
+    if(legacyRaw){
+      const legacy=JSON.parse(legacyRaw);
+      if(legacy?.units?.length===PACK_SIZE) return {state:legacy,updatedAt:0,source:'legacy'};
+    }
+  }catch(e){}
+  return null;
+}
+
 const Storage = {
-  load(){
-    try {
-      const raw=localStorage.getItem(STORAGE_KEY);
-      if(!raw) return null;
-      return JSON.parse(raw);
-    } catch(e){ return null; }
+  mode:'starting',
+  dbSchema:null,
+  integrity:null,
+  persistentStorage:null,
+  lastError:null,
+  async load(){
+    const local=localCandidate();
+    try{
+      const dbRecord=await SQLiteClient.load();
+      this.dbSchema=dbRecord?.dbSchema||SQLITE_DB_SCHEMA_VERSION;
+      let dbState=null;
+      if(dbRecord?.payload){
+        try{ dbState=JSON.parse(dbRecord.payload); }catch(e){}
+      }
+      const dbCandidate=dbState?.units?.length===PACK_SIZE
+        ? {state:dbState,updatedAt:Number(dbRecord.updatedAt)||0,source:'sqlite'}
+        : null;
+      const chosen=local && (!dbCandidate || local.updatedAt>dbCandidate.updatedAt) ? local : dbCandidate;
+      if(chosen?.source!=='sqlite'){
+        if(chosen) await SQLiteClient.save(JSON.stringify(chosen.state),chosen.state.schemaVersion||STATE_SCHEMA_VERSION,Date.now());
+      }
+      try{
+        const check=await SQLiteClient.integrity();
+        this.integrity=check?.integrity||null;
+      }catch(e){}
+      try{
+        this.persistentStorage=await navigator.storage?.persist?.();
+      }catch(e){ this.persistentStorage=null; }
+      this.mode='sqlite';
+      this.lastError=null;
+      return chosen?.state||null;
+    }catch(error){
+      this.mode='local-fallback';
+      this.lastError=error?.message||String(error);
+      return local?.state||null;
+    }
   },
   save(value){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+    const snapshot=JSON.parse(JSON.stringify(value));
+    const updatedAt=Date.now();
+    try{
+      localStorage.setItem(EMERGENCY_STORAGE_KEY,JSON.stringify({updatedAt,state:snapshot}));
+    }catch(e){}
+    if(this.mode==='sqlite'){
+      SQLiteClient.save(JSON.stringify(snapshot),snapshot.schemaVersion||STATE_SCHEMA_VERSION,updatedAt)
+        .catch(error=>{this.lastError=error?.message||String(error);});
+    }
   }
 };
 
-let state = load();
-function load(){
-  const x=Storage.load();
+function persistenceLabel(){
+  if(Storage.mode==='sqlite'){
+    const durable=Storage.persistentStorage===true?' · almacenamiento persistente':'';
+    const ok=Storage.integrity==='ok'?' · integridad OK':'';
+    return `SQLite local · DB v${Storage.dbSchema||SQLITE_DB_SCHEMA_VERSION}${durable}${ok}`;
+  }
+  return 'Modo de recuperación local · SQLite no disponible';
+}
+
+let state = null;
+async function load(){
+  const x=await Storage.load();
   if(x?.units?.length===PACK_SIZE) return migrateState(x);
   return initialState();
 }
@@ -732,6 +848,7 @@ function migrateState(x){
   x.wrongBook = x.wrongBook && typeof x.wrongBook==='object' ? x.wrongBook : {};
   if(['reader','readerLibrary'].includes(x.screen)) x.screen='home';
   x.units = x.units.map(u => {
+    const canonical=baseUnits.find(item=>item.id===u.id)||u;
     let dueSession = Number.isFinite(u.dueSession) ? u.dueSession : (u.due ? x.sessionNumber + 1 : null);
     let reviewKind = u.reviewKind || (u.due || u.status==='unstable' ? 'forget' : null);
     let reviewMode = u.reviewMode || 'word';
@@ -741,7 +858,7 @@ function migrateState(x){
       dueSession=x.sessionNumber+2;
       reviewKind='verify';
     }
-    return {...u,dueSession,reviewKind,reviewMode,lastSessionSeen:Number.isFinite(u.lastSessionSeen)?u.lastSessionSeen:null,
+    return {...u,...canonical,dueSession,reviewKind,reviewMode,lastSessionSeen:Number.isFinite(u.lastSessionSeen)?u.lastSessionSeen:null,
       listenAttempts:Number.isFinite(u.listenAttempts)?u.listenAttempts:0,
       listenCorrect:Number.isFinite(u.listenCorrect)?u.listenCorrect:0,
       listenMistakes:Number.isFinite(u.listenMistakes)?u.listenMistakes:0,
@@ -1129,7 +1246,7 @@ function home(){
       <button class="secondary" onclick="buildPronounceSession()">Empezar Pronounce</button>
     </section>
     <section class="card reader-home-card">
-      <div class="session-title"><strong>Tiny Reader</strong><span>2 textos · 6 preguntas</span></div>
+      <div class="session-title"><strong>Tiny Reader</strong><span>${READER_TEXTS.length} textos · 6 preguntas</span></div>
       <p class="reader-home-copy">Lecturas breves del pack Everyday English. El texto es fijo y las preguntas tienen una respuesta inequívoca.</p>
       <button class="secondary" onclick="go('readerLibrary')">Abrir Tiny Reader</button>
     </section>
@@ -1517,8 +1634,8 @@ function progress(){
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${pronounceStats.pct==null?'—':pronounceStats.pct+'%'}</strong><span>pronounce recognizability</span></div><p class="note" style="margin-bottom:0">${pronounceStats.attempted?`${pronounceStats.correct} de ${pronounceStats.attempted} palabras nuevas reconocidas a la primera.`:'Todavía no has hecho Pronounce.'}</p></div>
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${Object.values(state.readerProgress||{}).filter(x=>x.attempts>0).length} / ${READER_TEXTS.length}</strong><span>Tiny Reader</span></div><p class="note" style="margin-bottom:0">Textos de prueba completados. Las preguntas de lectura no alteran el contador de palabras.</p></div>
     <div class="list"><div class="list-item"><span>Reconocimiento</span><span>${state.units.reduce((a,u)=>a+u.recognition,0)}</span></div><div class="list-item"><span>Producción</span><span>${state.units.reduce((a,u)=>a+u.production,0)}</span></div><div class="list-item"><span>Recalls superados</span><span>${state.units.reduce((a,u)=>a+u.recall,0)}</span></div><div class="list-item"><span>Errores recurrentes</span><span>${recurrentWrongCount()}</span></div><div class="list-item"><span>Errores resueltos</span><span>${resolvedWrongCount()}</span></div><div class="list-item"><span>Listen Once correctos</span><span>${state.units.reduce((a,u)=>a+(u.listenCorrect||0),0)}</span></div><div class="list-item"><span>Pronounce reconocidos</span><span>${state.units.reduce((a,u)=>a+(u.pronounceCorrect||0),0)}</span></div></div>
-    <div class="card data-card"><div class="eyebrow">Datos locales</div><p class="note" style="margin:0 0 14px">El progreso vive solo en este dispositivo. Haz una copia si quieres poder recuperarlo tras borrar datos, reinstalar o cambiar de versión.</p><div class="demo-actions" style="margin-top:0"><button class="ghost" onclick="exportBackup()">Exportar copia</button><button class="ghost" onclick="document.getElementById('backupImport').click()">Importar copia</button></div><input id="backupImport" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(event)"><div id="dataStatus" class="mode-note" style="margin-top:10px">Esquema de datos v${STATE_SCHEMA_VERSION} · Noma v${APP_VERSION}</div></div>
-    <details class="demo-tools"><summary>Herramientas de validación</summary><div class="demo-actions"><button class="ghost" onclick="seedForgetMe()">Añadir 3 ejemplos a Forget Me</button><button class="danger-btn" onclick="resetDemo()">Reiniciar MVP</button></div></details>
+    <div class="card data-card"><div class="eyebrow">Datos locales</div><p class="note" style="margin:0 0 14px">SQLite es el almacenamiento principal de la Beta. Noma mantiene además una copia local de emergencia y puedes exportar un JSON para conservar el progreso fuera del navegador.</p><div class="demo-actions" style="margin-top:0"><button class="ghost" onclick="exportBackup()">Exportar copia</button><button class="ghost" onclick="document.getElementById('backupImport').click()">Importar copia</button></div><input id="backupImport" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(event)"><div id="dataStatus" class="mode-note" style="margin-top:10px">${escapeHtml(persistenceLabel())} · estado v${STATE_SCHEMA_VERSION}</div></div>
+    <details class="demo-tools"><summary>Herramientas de validación</summary><div class="demo-actions"><button class="ghost" onclick="seedForgetMe()">Añadir 3 ejemplos a Forget Me</button><button class="danger-btn" onclick="resetDemo()">Reiniciar Beta</button></div></details>
     ${renderNav('progress')}`;
 }
 
@@ -1783,9 +1900,18 @@ function render(){
   if(state.screen!=='exercise') window.scrollTo(0,0);
 }
 window.go=go; window.buildSession=buildSession; window.buildListenSession=buildListenSession; window.buildPronounceSession=buildPronounceSession; window.checkWord=checkWord; window.dontKnowWord=dontKnowWord; window.checkSentence=checkSentence; window.dontKnowSentence=dontKnowSentence; window.checkRecall=checkRecall; window.nextTask=nextTask; window.seedForgetMe=seedForgetMe; window.resetDemo=resetDemo; window.playListen=playListen; window.checkListen=checkListen; window.dontKnowListen=dontKnowListen; window.exportBackup=exportBackup; window.importBackup=importBackup; window.startReader=startReader; window.exitReader=exitReader; window.beginReaderQuestions=beginReaderQuestions; window.answerReaderOption=answerReaderOption; window.nextReaderQuestion=nextReaderQuestion; window.playPronounce=playPronounce; window.startPronounceRecognition=startPronounceRecognition; window.retryPronounce=retryPronounce;
-// A fresh launch always opens on Hoy. Learning history remains untouched.
-state.screen='home'; state.session=null; state.readerSession=null; save();
-render();
+async function bootstrap(){
+  try{
+    state=await load();
+  }catch(error){
+    console.error(error);
+    state=initialState();
+  }
+  // A fresh launch always opens on Hoy. Learning history remains untouched.
+  state.screen='home'; state.session=null; state.readerSession=null; save();
+  render();
+}
+bootstrap();
 
 </script>
 </body>
