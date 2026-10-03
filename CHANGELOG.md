@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.18
+- Fixed the meaning of the `left` counter so it behaves as a real pending-unit counter.
+- A first correct answer in Word **or** Sentence now removes that unit from `left`.
+- A later failure can put an unstable unit back into `left` until it is recovered.
+- Consolidation remains separate and stricter.
+- Updated Home, Progress, Pack and Done copy to match the new counter semantics.
+- Preserves the v4 data schema; existing local progress is recalculated automatically because `left` is derived from unit state.
+
 ## v0.17
 - Recurrent errors with one successful recovery now remain visible as **Mejorando · 1/2**.
 - Fixed the `left` counter after successful Forget Me recalls.
