@@ -319,7 +319,7 @@ const WORD_ALIASES = {
   'usually':['normalmente','habitualmente','por lo general'],
   'especially':['especialmente','sobre todo','particularmente'],
   'quite':['bastante'],
-  'rather':['más bien','mas bien'],
+  'would rather':['preferiría','preferiria','preferir'],
   'whole':['entero','entera','todo','toda'],
   'several':['varios','varias','unos cuantos','unas cuantas'],
   'both':['ambos','ambas','los dos','las dos'],
@@ -427,22 +427,22 @@ const baseUnits = [
   ['usually','normalmente','I usually get up at seven.','Normalmente me levanto a las siete.'],
   ['especially','especialmente','I like it, especially in summer.','Me gusta, especialmente en verano.'],
   ['quite','bastante','The film was quite good.','La película estuvo bastante bien.'],
-  ['rather','más bien','I would rather stay home.','Preferiría quedarme en casa.'],
+  ['would rather','preferiría','I would rather stay home.','Preferiría quedarme en casa.'],
   ['whole','entero','I spent the whole day there.','Pasé el día entero allí.'],
   ['several','varios','Several people called me.','Varias personas me llamaron.'],
   ['both','ambos','Both options are fine.','Ambas opciones están bien.'],
   ['either','cualquiera de los dos','Either day works for me.','Cualquiera de los dos días me va bien.'],
   ['neither','ninguno de los dos','Neither answer is correct.','Ninguna de las dos respuestas es correcta.'],
   ['another','otro','Can I have another coffee?','¿Puedo tomar otro café?'],
-  ['through','a través de','We walked through the park.','Caminamos por el parque.'],
+  ['through','a través de','We walked through the park.','Caminamos a través del parque.'],
   ['across','al otro lado de','The shop is across the street.','La tienda está al otro lado de la calle.'],
   ['towards','hacia','She walked towards the station.','Caminó hacia la estación.'],
-  ['within','dentro de','I’ll reply within an hour.','Responderé dentro de una hora.'],
+  ['within','dentro de / en un plazo de','I’ll reply within an hour.','Responderé en un plazo de una hora.'],
   ['without','sin','I left without my keys.','Salí sin mis llaves.'],
   ['during','durante','I fell asleep during the film.','Me dormí durante la película.'],
   ['while','mientras','I listened to music while cooking.','Escuché música mientras cocinaba.'],
-  ['since','desde','I have lived here since 2020.','Vivo aquí desde 2020.'],
-  ['for','durante','I have waited for two hours.','He esperado durante dos horas.'],
+  ['since','desde (punto de inicio)','I have lived here since 2020.','Vivo aquí desde 2020.'],
+  ['for','durante (periodo)','I have waited for two hours.','He esperado durante dos horas.'],
   ['until','hasta','I’ll stay until Friday.','Me quedaré hasta el viernes.'],
   ['despite','a pesar de','Despite the rain, we went out.','A pesar de la lluvia, salimos.'],
   ['because of','a causa de','The train was late because of the storm.','El tren llegó tarde a causa de la tormenta.'],
@@ -506,7 +506,7 @@ const baseUnits = [
   ['afford','poder permitirse','I can’t afford a new car.','No puedo permitirme un coche nuevo.'],
   ['worth','valer la pena','It was expensive but worth it.','Fue caro, pero valió la pena.'],
   ['available','disponible','Is this seat available?','¿Está disponible este asiento?'],
-  ['likely','probable','Rain is likely tomorrow.','Es probable que llueva mañana.'],
+  ['likely','probable','It is likely to rain tomorrow.','Es probable que llueva mañana.'],
   ['similar','parecido','The two options are similar.','Las dos opciones son parecidas.'],
   ['different','diferente','This one is different.','Este es diferente.'],
   ['on time','a tiempo','The train arrived on time.','El tren llegó a tiempo.']
@@ -553,6 +553,138 @@ const READER_TEXTS = [
       {q:'Daniel ate lunch alone at his desk.',options:['True','False'],correct:1},
       {q:'What did Daniel realize during lunch?',options:['He wanted to work in a restaurant.','He had missed informal conversations with colleagues.','He preferred bringing food from home.'],correct:1},
       {q:'What did Daniel decide at the end?',options:['To work only from home.','To return to the office every day.','To keep a mix of home and office days.'],correct:2}
+    ]
+  },
+  {
+    id:'missing-package',
+    title:'The Package at the Wrong Door',
+    description:'Un paquete aparece en otro edificio y Lena intenta averiguar qué ha pasado.',
+    minutes:3,
+    words:231,
+    paragraphs:[
+      `On Wednesday afternoon, Lena received a message saying that a package had been delivered to her building. She was expecting a new pair of headphones, so she went downstairs as soon as she finished work. However, there was nothing next to the entrance, and the receptionist had already gone home.`,
+      `Lena checked the delivery message again. It included a photo, but the door in the picture did not look like hers. She walked around the building and looked for the package near the side entrance. It was not there either. For a moment, she thought someone might have taken it.`,
+      `Instead of calling the delivery company immediately, Lena decided to ask her neighbours. The woman across the hall had not seen anything, but a man on the floor below remembered seeing a box near another building with a similar number. Lena went outside and realized that the courier had dropped the package off two streets away.`,
+      `She found the other building and explained the problem to a resident who was leaving. Fortunately, the box was still inside, next to the mailboxes. Lena checked the name on it before taking it home.`,
+      `The delivery had taken much longer to sort out than she expected, but at least nothing had been lost. She also decided to add clearer instructions to future orders so the same mistake would be less likely to happen again.`
+    ],
+    questions:[
+      {q:'What was Lena expecting to receive?',options:['A pair of headphones.','A new phone.','A book.'],correct:0},
+      {q:'What made Lena think the delivery photo showed a different building?',options:['The package was open.','The door did not look like hers.','The photo had no address.'],correct:1},
+      {q:'What did Lena do before calling the delivery company?',options:['She asked her neighbours.','She ordered a replacement.','She went back to work.'],correct:0},
+      {q:'Where had the courier left the package?',options:['At the side entrance.','Two streets away.','At the receptionist’s desk.'],correct:1},
+      {q:'The package had been stolen.',options:['True','False'],correct:1},
+      {q:'What did Lena decide to change for future deliveries?',options:['Use a different company.','Add clearer delivery instructions.','Stop ordering online.'],correct:1}
+    ]
+  },
+  {
+    id:'friday-dinner',
+    title:'A Dinner Without the Main Ingredient',
+    description:'Marco improvisa una cena cuando descubre que le falta un ingrediente importante.',
+    minutes:3,
+    words:235,
+    paragraphs:[
+      `Marco usually cooked simple meals during the week, but on Friday he decided to invite two friends for dinner. He had found a recipe for a vegetable curry that looked easy enough, and he wanted to try something different.`,
+      `He went shopping after work and bought almost everything on the list. When he got home, however, he realized that he had forgotten coconut milk, one of the main ingredients. The nearest supermarket was about to close, and he did not want to go out again.`,
+      `Marco looked through his kitchen to see what he could use instead. He had plain yogurt, some milk and a small amount of cream. He was not sure whether any of them would work, so he called his sister, who cooked more often than he did. She suggested using yogurt, but told him to add it at the end so it would not separate.`,
+      `The curry turned out better than Marco expected. It was slightly less sweet than the original recipe, but his friends liked it. They ate everything and spent the rest of the evening talking at the table.`,
+      `Afterwards, Marco wrote a note in the recipe: “Yogurt works too.” He also made a short list of ingredients he often forgot to keep at home. The dinner was not exactly what he had planned, but he was glad he had carried on instead of giving up and ordering food.`
+    ],
+    questions:[
+      {q:'Why did Marco cook something different on Friday?',options:['He invited two friends for dinner.','His usual food had run out.','His sister asked him to cook.'],correct:0},
+      {q:'Which ingredient had Marco forgotten?',options:['Rice.','Coconut milk.','Yogurt.'],correct:1},
+      {q:'Why did Marco not return to the supermarket?',options:['It was too far away.','It was about to close.','He had no money left.'],correct:1},
+      {q:'What did Marco’s sister suggest?',options:['Use yogurt and add it near the end.','Use only cream.','Order food instead.'],correct:0},
+      {q:'How was the finished curry different from the original recipe?',options:['It was less sweet.','It was much hotter.','It was too salty.'],correct:0},
+      {q:'What did Marco do after dinner?',options:['He deleted the recipe.','He wrote a note and made a useful shopping list.','He went to the supermarket.'],correct:1}
+    ]
+  },
+  {
+    id:'dentist-delay',
+    title:'Eight Minutes Late',
+    description:'Una llamada de trabajo complica una cita que parecía fácil de encajar.',
+    minutes:3,
+    words:236,
+    paragraphs:[
+      `Sara had a dentist appointment at half past four on Monday. She normally worked from home, so she expected the journey to be easy. The clinic was only twenty minutes away by bus, and she planned to leave at four.`,
+      `Just before she was about to go, her manager called with a problem that needed a quick decision. Sara thought the conversation would take five minutes, but it lasted almost twenty. When she finally left home, the bus she needed was already disappearing at the end of the street.`,
+      `She checked the next arrival on her phone. Another bus would come in twelve minutes, which meant she would probably be late. Instead of waiting, Sara decided to walk quickly to the metro station. She sent the clinic a message while she was on her way and explained that she might arrive ten minutes late.`,
+      `The metro was crowded, but there were no delays. Sara reached the clinic at four thirty-eight. The receptionist thanked her for letting them know and told her that the dentist was running late too.`,
+      `In the end, Sara only waited a few minutes. She realized that the stressful part had not been arriving late; it had been not knowing whether the clinic would still see her. On the way home, she decided that next time she would leave more time between work and an appointment, even if the journey usually seemed short.`
+    ],
+    questions:[
+      {q:'When had Sara planned to leave home?',options:['At 3:30.','At 4:00.','At 4:30.'],correct:1},
+      {q:'What delayed Sara before she left?',options:['A call from her manager.','A late delivery.','A problem with the bus app.'],correct:0},
+      {q:'Why did Sara decide not to wait for the next bus?',options:['It had been cancelled.','It would probably make her late.','She preferred walking all the way.'],correct:1},
+      {q:'How did Sara finally travel to the clinic?',options:['By taxi.','By metro.','By bicycle.'],correct:1},
+      {q:'What did the receptionist tell Sara?',options:['The appointment had been cancelled.','The dentist was running late too.','She needed to book another day.'],correct:1},
+      {q:'What did Sara decide for future appointments?',options:['Always use a taxi.','Leave more time between work and the appointment.','Only book morning appointments.'],correct:1}
+    ]
+  },
+  {
+    id:'photo-course',
+    title:'The Class That Made Nico Go Outside',
+    description:'Un curso de fotografía cambia una rutina de aprender solo mirando vídeos.',
+    minutes:3,
+    words:241,
+    paragraphs:[
+      `Nico had wanted to improve his photography for a while, but he kept putting it off. He watched videos online and saved useful articles, yet he rarely went outside to practise. In September, he noticed that a local community centre was offering a six-week evening course, so he decided to sign up.`,
+      `The first class was quieter than he expected. There were eight students with very different levels of experience. Some had expensive cameras, while others were using their phones. The teacher explained that the course was not about equipment. Instead, they would focus on light, composition and learning to notice details.`,
+      `For the first task, everyone had to take ten photographs within two streets of the centre. Nico thought the area was too ordinary to be interesting. However, once he started looking carefully, he found reflections in shop windows, unusual shadows and small details he had never noticed before.`,
+      `At the end of the class, each student chose one picture to show the group. Nico was nervous because he did not think his photo was especially good. The teacher did not simply say whether it was right or wrong. She asked what he had wanted people to notice and suggested one small change for next time.`,
+      `Nico left with several ideas he wanted to try. More importantly, he had finally spent an evening actually taking photographs instead of only reading about them. He decided the course was already worth it.`
+    ],
+    questions:[
+      {q:'What had Nico mainly been doing before joining the course?',options:['Practising outside every day.','Watching videos and saving articles.','Working as a photographer.'],correct:1},
+      {q:'How long was the course?',options:['Six weeks.','Six months.','One weekend.'],correct:0},
+      {q:'What did the teacher say the course would focus on?',options:['Buying better equipment.','Light, composition and noticing details.','Editing videos.'],correct:1},
+      {q:'What was the first practical task?',options:['Take ten photographs near the centre.','Photograph another student.','Copy a famous picture.'],correct:0},
+      {q:'What did Nico initially think about the area?',options:['It was too crowded.','It was too ordinary to be interesting.','It was dangerous.'],correct:1},
+      {q:'Why did Nico think the course was already worth it?',options:['He had bought a better camera.','He had finally spent time actually taking photographs.','The teacher had chosen his photo as the best.'],correct:1}
+    ]
+  },
+  {
+    id:'laptop-repair',
+    title:'Repair or Replace?',
+    description:'Emma descubre que un portátil lento no necesita necesariamente ser sustituido.',
+    minutes:3,
+    words:244,
+    paragraphs:[
+      `Emma's laptop had been getting slower for several weeks. At first, she ignored the problem because it still worked, and she did not want to spend money on a new computer. Then, one morning, it suddenly turned itself off during a video call and would not start again.`,
+      `She took it to a small repair shop near her office. The technician said he could check it that afternoon, but he warned her that the problem might be the battery or something more serious. Emma left the laptop there and borrowed an older one from work.`,
+      `Later that day, the shop called. The battery had failed, but the rest of the computer seemed fine. A replacement was available, and the repair would cost much less than Emma had expected. She agreed to it, although the new battery would not arrive until the following morning.`,
+      `When Emma collected the laptop the next day, the technician also showed her that the storage was almost full. He suggested removing old downloads and moving large videos to an external drive. Emma had not realized how much unnecessary material she had kept.`,
+      `That evening, she cleaned up the files and made a backup of the documents that mattered. The laptop was not as fast as a new one, but it worked well enough again. Emma was pleased that she had repaired it instead of replacing it, and she decided to pay more attention to backups and storage from then on.`
+    ],
+    questions:[
+      {q:'Why had Emma delayed doing anything about the slow laptop?',options:['It still worked and she did not want to buy a new one.','She had already ordered a replacement.','The repair shop was closed.'],correct:0},
+      {q:'What had actually failed?',options:['The screen.','The battery.','The keyboard.'],correct:1},
+      {q:'How did the repair cost compare with Emma’s expectation?',options:['It was much cheaper.','It was exactly the same.','It was more expensive.'],correct:0},
+      {q:'What other problem did the technician notice?',options:['The storage was almost full.','The charger was missing.','The camera did not work.'],correct:0},
+      {q:'What did Emma do that evening?',options:['She bought a new laptop.','She cleaned files and backed up important documents.','She returned the new battery.'],correct:1},
+      {q:'What did Emma decide to pay more attention to?',options:['Video calls.','Backups and storage.','Buying new software.'],correct:1}
+    ]
+  },
+  {
+    id:'hallway-lights',
+    title:'When the Hallway Went Dark',
+    description:'Una pequeña avería hace que los vecinos empiecen a colaborar más.',
+    minutes:3,
+    words:249,
+    paragraphs:[
+      `David had lived in the same apartment for three years, but he knew only a few of his neighbours. People usually said hello in the lift and then carried on with their day. That changed one Saturday when the lights in the shared hallway stopped working.`,
+      `At first, David assumed someone else would report the problem. By the evening, the hallway was still dark, so he sent a message in the building's group chat. Several people replied almost immediately. One neighbour had already contacted the building manager, but nobody knew when an electrician would be available.`,
+      `Because the stairs were difficult to see, David put a small rechargeable lamp near his door. A woman from the floor above brought another one, and someone else found two battery-powered lights. Within half an hour, the darkest parts of the staircase were much safer.`,
+      `The electrician arrived on Monday morning and discovered that a faulty timer was causing the problem. The repair itself took less than an hour. That evening, a few neighbours stayed in the entrance talking about what had happened. They realized that several people in the building had tools, spare lights or practical skills that could be useful in future problems.`,
+      `A week later, the group chat was still more active than before. People were not suddenly close friends, but they were more likely to ask for help or offer it. David thought it was strange that a broken light had made the building feel a little more friendly.`
+    ],
+    questions:[
+      {q:'What problem occurred in David’s building?',options:['The lift stopped working.','The hallway lights stopped working.','The front door would not close.'],correct:1},
+      {q:'What did David do by Saturday evening?',options:['He called the police.','He sent a message in the building group chat.','He repaired the lights himself.'],correct:1},
+      {q:'How did the neighbours make the stairs safer temporarily?',options:['They used rechargeable and battery-powered lights.','They left all the doors open.','They used their phone screens only.'],correct:0},
+      {q:'What caused the lighting problem?',options:['A faulty timer.','A broken staircase.','A power cut in the whole neighbourhood.'],correct:0},
+      {q:'What did the neighbours discover after the repair?',options:['Several people had useful tools or practical skills.','Nobody wanted to help.','The building manager was moving away.'],correct:0},
+      {q:'What was still different a week later?',options:['The hallway was dark again.','The group chat was more active and people offered more help.','Everyone had become close friends.'],correct:1}
     ]
   }
 ];
