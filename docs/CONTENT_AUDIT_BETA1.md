@@ -12,7 +12,7 @@ The CEFR itself describes proficiency through communicative ability and vocabula
 
 - 100 stable unit IDs.
 - 72 single-word units.
-- 28 multiword chunks.
+- 29 multiword chunks.
 - 20 connector / discourse / time-relation items.
 - 21 phrasal or functional chunks.
 - Strong contrast clusters: `since / for`, `borrow / lend`, `used to / be used to / get used to`, `although / even though / despite`.
