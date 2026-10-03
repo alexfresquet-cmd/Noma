@@ -16,6 +16,7 @@ Version: **0.20.0-beta.1**
 - [x] SQLite database schema version 1 is documented and passes a standard SQLite integrity check.
 - [x] Legacy localStorage migration path exists.
 - [x] Emergency local mirror exists.
+- [x] Fail-safe boot prevents an empty state from overwriting inaccessible SQLite data.
 - [x] Versioned JSON export/import remains available.
 - [x] No user-facing “MVP” wording remains in the Beta build.
 
