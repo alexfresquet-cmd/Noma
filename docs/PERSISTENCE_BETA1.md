@@ -40,6 +40,8 @@ On first Beta 1 launch:
 
 The old localStorage key is not deleted automatically. Beta 1 also maintains a separate local emergency mirror so an interrupted SQLite write can be recovered on the next launch.
 
+If SQLite cannot open and no valid emergency/legacy copy exists, Noma deliberately refuses to initialise a blank learning state. It shows a recovery screen instead, with Retry and JSON-restore actions. This prevents a transient storage/runtime failure from overwriting a valid but temporarily inaccessible database.
+
 ## Backup strategy
 
 There are three layers:
