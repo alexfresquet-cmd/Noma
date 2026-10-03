@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.19
+- Replaced the ambiguous single `left` display with explicit Word, Sentence and Word + Sentence progress.
+- Home now shows the combined Word + Sentence total out of 100.
+- Selecting Word or Sentence shows that mode's own completed and pending counts.
+- Combined mode shows units completed in both Word and Sentence.
+- Done now reports Word, Sentence and combined progress separately.
+- Added a visible app version in the top bar to make stale browser builds obvious.
+- Added cache-control meta hints for the GitHub Pages prototype.
+- Preserves the v4 data schema.
+
 ## v0.18
 - Fixed the meaning of the `left` counter so it behaves as a real pending-unit counter.
 - A first correct answer in Word **or** Sentence now removes that unit from `left`.
