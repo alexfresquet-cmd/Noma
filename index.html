@@ -706,51 +706,121 @@ function initialState(){
   };
 }
 
-const SQLiteClient = {
-  worker:null,
-  seq:0,
-  pending:new Map(),
+const SQLiteStore = {
+  SQL:null,
+  db:null,
   readyPromise:null,
-  ensure(){
-    if(this.readyPromise) return this.readyPromise;
-    this.readyPromise=new Promise((resolve,reject)=>{
-      const worker=new Worker('./db-worker.js?v=beta1',{type:'module'});
-      this.worker=worker;
-      const timeout=setTimeout(()=>reject(new Error('SQLite tardó demasiado en iniciar')),15000);
-      worker.onmessage=(event)=>{
-        const msg=event.data||{};
-        if(msg.type==='ready'){
-          clearTimeout(timeout);
-          if(msg.ok) resolve(msg);
-          else reject(new Error(msg.error?.message||'SQLite no pudo iniciarse'));
-          return;
-        }
-        if(msg.id!=null){
-          const pending=this.pending.get(msg.id);
-          if(!pending) return;
-          this.pending.delete(msg.id);
-          if(msg.ok) pending.resolve(msg.result);
-          else pending.reject(new Error(msg.error?.message||'Error de SQLite'));
-        }
-      };
-      worker.onerror=(event)=>{
-        clearTimeout(timeout);
-        reject(new Error(event?.message||'No se pudo abrir el worker de SQLite'));
-      };
+  writeQueue:Promise.resolve(),
+  containerName:'noma-sqlite-container-v1',
+  storeName:'files',
+  dbKey:'noma-beta.sqlite',
+  cdnBase:'https://cdn.jsdelivr.net/npm/sql.js@1.14.2/dist/',
+
+  async loadLibrary(){
+    if(window.initSqlJs) return window.initSqlJs;
+    await new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      script.src=this.cdnBase+'sql-wasm.min.js';
+      script.async=true;
+      script.onload=resolve;
+      script.onerror=()=>reject(new Error('No se pudo cargar SQLite'));
+      document.head.appendChild(script);
     });
+    if(typeof window.initSqlJs!=='function') throw new Error('SQLite no se inicializó');
+    return window.initSqlJs;
+  },
+
+  openContainer(){
+    return new Promise((resolve,reject)=>{
+      const request=indexedDB.open(this.containerName,1);
+      request.onupgradeneeded=()=>request.result.createObjectStore(this.storeName);
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>reject(request.error||new Error('IndexedDB no disponible'));
+    });
+  },
+
+  async readFile(){
+    const idb=await this.openContainer();
+    try{
+      return await new Promise((resolve,reject)=>{
+        const tx=idb.transaction(this.storeName,'readonly');
+        const req=tx.objectStore(this.storeName).get(this.dbKey);
+        req.onsuccess=()=>resolve(req.result||null);
+        req.onerror=()=>reject(req.error);
+      });
+    } finally { idb.close(); }
+  },
+
+  async writeFile(bytes){
+    const idb=await this.openContainer();
+    try{
+      await new Promise((resolve,reject)=>{
+        const tx=idb.transaction(this.storeName,'readwrite');
+        tx.objectStore(this.storeName).put(bytes,this.dbKey);
+        tx.oncomplete=resolve;
+        tx.onerror=()=>reject(tx.error);
+        tx.onabort=()=>reject(tx.error||new Error('No se pudo guardar SQLite'));
+      });
+    } finally { idb.close(); }
+  },
+
+  async ensure(){
+    if(this.readyPromise) return this.readyPromise;
+    this.readyPromise=(async()=>{
+      const initSqlJs=await this.loadLibrary();
+      this.SQL=await initSqlJs({locateFile:filename=>this.cdnBase+filename});
+      const stored=await this.readFile();
+      this.db=stored ? new this.SQL.Database(new Uint8Array(stored)) : new this.SQL.Database();
+      this.db.run(`
+        CREATE TABLE IF NOT EXISTS app_state (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          state_schema INTEGER NOT NULL,
+          payload TEXT NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS meta (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+        PRAGMA user_version = ${SQLITE_DB_SCHEMA_VERSION};
+      `);
+      return true;
+    })();
     return this.readyPromise;
   },
-  async request(type,payload=null){
+
+  async load(){
     await this.ensure();
-    return new Promise((resolve,reject)=>{
-      const id=++this.seq;
-      this.pending.set(id,{resolve,reject});
-      this.worker.postMessage({id,type,payload});
-    });
+    const stmt=this.db.prepare('SELECT payload, updated_at, state_schema FROM app_state WHERE id = 1');
+    try{
+      if(!stmt.step()) return {payload:null,updatedAt:0,stateSchema:null,dbSchema:SQLITE_DB_SCHEMA_VERSION};
+      const row=stmt.getAsObject();
+      return {payload:row.payload,updatedAt:Number(row.updated_at)||0,stateSchema:Number(row.state_schema)||null,dbSchema:SQLITE_DB_SCHEMA_VERSION};
+    } finally { stmt.free(); }
   },
-  load(){ return this.request('load'); },
-  save(json,stateSchema,updatedAt){ return this.request('save',{json,stateSchema,updatedAt}); },
-  integrity(){ return this.request('integrity'); }
+
+  save(json,stateSchema,updatedAt){
+    this.writeQueue=this.writeQueue.then(async()=>{
+      await this.ensure();
+      this.db.run(`
+        INSERT INTO app_state(id,state_schema,payload,updated_at)
+        VALUES(1,?,?,?)
+        ON CONFLICT(id) DO UPDATE SET
+          state_schema=excluded.state_schema,
+          payload=excluded.payload,
+          updated_at=excluded.updated_at
+      `,[Number(stateSchema)||0,String(json),Number(updatedAt)||Date.now()]);
+      await this.writeFile(this.db.export());
+      return true;
+    });
+    return this.writeQueue;
+  },
+
+  async integrity(){
+    await this.ensure();
+    const result=this.db.exec('PRAGMA integrity_check');
+    return result?.[0]?.values?.[0]?.[0]||'unknown';
+  }
 };
 
 function localCandidate(){
@@ -782,7 +852,7 @@ const Storage = {
   async load(){
     const local=localCandidate();
     try{
-      const dbRecord=await SQLiteClient.load();
+      const dbRecord=await SQLiteStore.load();
       this.dbSchema=dbRecord?.dbSchema||SQLITE_DB_SCHEMA_VERSION;
       let dbState=null;
       if(dbRecord?.payload){
@@ -792,16 +862,11 @@ const Storage = {
         ? {state:dbState,updatedAt:Number(dbRecord.updatedAt)||0,source:'sqlite'}
         : null;
       const chosen=local && (!dbCandidate || local.updatedAt>dbCandidate.updatedAt) ? local : dbCandidate;
-      if(chosen?.source!=='sqlite'){
-        if(chosen) await SQLiteClient.save(JSON.stringify(chosen.state),chosen.state.schemaVersion||STATE_SCHEMA_VERSION,Date.now());
+      if(chosen?.source!=='sqlite' && chosen){
+        await SQLiteStore.save(JSON.stringify(chosen.state),chosen.state.schemaVersion||STATE_SCHEMA_VERSION,Date.now());
       }
-      try{
-        const check=await SQLiteClient.integrity();
-        this.integrity=check?.integrity||null;
-      }catch(e){}
-      try{
-        this.persistentStorage=await navigator.storage?.persist?.();
-      }catch(e){ this.persistentStorage=null; }
+      try{ this.integrity=await SQLiteStore.integrity(); }catch(e){}
+      try{ this.persistentStorage=await navigator.storage?.persist?.(); }catch(e){ this.persistentStorage=null; }
       this.mode='sqlite';
       this.lastError=null;
       return chosen?.state||null;
@@ -818,7 +883,7 @@ const Storage = {
       localStorage.setItem(EMERGENCY_STORAGE_KEY,JSON.stringify({updatedAt,state:snapshot}));
     }catch(e){}
     if(this.mode==='sqlite'){
-      SQLiteClient.save(JSON.stringify(snapshot),snapshot.schemaVersion||STATE_SCHEMA_VERSION,updatedAt)
+      SQLiteStore.save(JSON.stringify(snapshot),snapshot.schemaVersion||STATE_SCHEMA_VERSION,updatedAt)
         .catch(error=>{this.lastError=error?.message||String(error);});
     }
   }
@@ -826,7 +891,7 @@ const Storage = {
 
 function persistenceLabel(){
   if(Storage.mode==='sqlite'){
-    const durable=Storage.persistentStorage===true?' · almacenamiento persistente':'';
+    const durable=Storage.persistentStorage===true?' · persistencia reforzada':'';
     const ok=Storage.integrity==='ok'?' · integridad OK':'';
     return `SQLite local · DB v${Storage.dbSchema||SQLITE_DB_SCHEMA_VERSION}${durable}${ok}`;
   }
