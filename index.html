@@ -702,6 +702,7 @@ function initialState(){
     readerProgress: {},
     readerSession: null,
     wrongBook: {},
+    lastBackupAt: null,
     schemaVersion: STATE_SCHEMA_VERSION
   };
 }
@@ -771,19 +772,14 @@ const SQLiteStore = {
       this.SQL=await initSqlJs({locateFile:filename=>this.cdnBase+filename});
       const stored=await this.readFile();
       this.db=stored ? new this.SQL.Database(new Uint8Array(stored)) : new this.SQL.Database();
-      this.db.run(`
-        CREATE TABLE IF NOT EXISTS app_state (
-          id INTEGER PRIMARY KEY CHECK (id = 1),
-          state_schema INTEGER NOT NULL,
-          payload TEXT NOT NULL,
-          updated_at INTEGER NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS meta (
-          key TEXT PRIMARY KEY,
-          value TEXT NOT NULL
-        );
-        PRAGMA user_version = ${SQLITE_DB_SCHEMA_VERSION};
-      `);
+      this.db.run(`CREATE TABLE IF NOT EXISTS app_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        state_schema INTEGER NOT NULL,
+        payload TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`);
+      this.db.run('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+      this.db.run('PRAGMA user_version = '+SQLITE_DB_SCHEMA_VERSION);
       return true;
     })();
     return this.readyPromise;
@@ -889,6 +885,10 @@ const Storage = {
   }
 };
 
+function backupLabel(){
+  if(!state?.lastBackupAt) return 'Copia externa: todavía no';
+  return 'Última copia externa: '+new Date(state.lastBackupAt).toLocaleDateString();
+}
 function persistenceLabel(){
   if(Storage.mode==='sqlite'){
     const durable=Storage.persistentStorage===true?' · persistencia reforzada':'';
@@ -911,6 +911,7 @@ function migrateState(x){
   x.readerProgress = x.readerProgress && typeof x.readerProgress==='object' ? x.readerProgress : {};
   x.readerSession = null;
   x.wrongBook = x.wrongBook && typeof x.wrongBook==='object' ? x.wrongBook : {};
+  x.lastBackupAt = Number.isFinite(x.lastBackupAt) ? x.lastBackupAt : null;
   if(['reader','readerLibrary'].includes(x.screen)) x.screen='home';
   x.units = x.units.map(u => {
     const canonical=baseUnits.find(item=>item.id===u.id)||u;
@@ -1699,7 +1700,7 @@ function progress(){
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${pronounceStats.pct==null?'—':pronounceStats.pct+'%'}</strong><span>pronounce recognizability</span></div><p class="note" style="margin-bottom:0">${pronounceStats.attempted?`${pronounceStats.correct} de ${pronounceStats.attempted} palabras nuevas reconocidas a la primera.`:'Todavía no has hecho Pronounce.'}</p></div>
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${Object.values(state.readerProgress||{}).filter(x=>x.attempts>0).length} / ${READER_TEXTS.length}</strong><span>Tiny Reader</span></div><p class="note" style="margin-bottom:0">Textos de prueba completados. Las preguntas de lectura no alteran el contador de palabras.</p></div>
     <div class="list"><div class="list-item"><span>Reconocimiento</span><span>${state.units.reduce((a,u)=>a+u.recognition,0)}</span></div><div class="list-item"><span>Producción</span><span>${state.units.reduce((a,u)=>a+u.production,0)}</span></div><div class="list-item"><span>Recalls superados</span><span>${state.units.reduce((a,u)=>a+u.recall,0)}</span></div><div class="list-item"><span>Errores recurrentes</span><span>${recurrentWrongCount()}</span></div><div class="list-item"><span>Errores resueltos</span><span>${resolvedWrongCount()}</span></div><div class="list-item"><span>Listen Once correctos</span><span>${state.units.reduce((a,u)=>a+(u.listenCorrect||0),0)}</span></div><div class="list-item"><span>Pronounce reconocidos</span><span>${state.units.reduce((a,u)=>a+(u.pronounceCorrect||0),0)}</span></div></div>
-    <div class="card data-card"><div class="eyebrow">Datos locales</div><p class="note" style="margin:0 0 14px">SQLite es el almacenamiento principal de la Beta. Noma mantiene además una copia local de emergencia y puedes exportar un JSON para conservar el progreso fuera del navegador.</p><div class="demo-actions" style="margin-top:0"><button class="ghost" onclick="exportBackup()">Exportar copia</button><button class="ghost" onclick="document.getElementById('backupImport').click()">Importar copia</button></div><input id="backupImport" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(event)"><div id="dataStatus" class="mode-note" style="margin-top:10px">${escapeHtml(persistenceLabel())} · estado v${STATE_SCHEMA_VERSION}</div></div>
+    <div class="card data-card"><div class="eyebrow">Datos locales</div><p class="note" style="margin:0 0 14px">SQLite es el almacenamiento principal de la Beta. Noma mantiene además una copia local de emergencia y puedes exportar un JSON para conservar el progreso fuera del navegador.</p><div class="demo-actions" style="margin-top:0"><button class="ghost" onclick="exportBackup()">Exportar copia</button><button class="ghost" onclick="document.getElementById('backupImport').click()">Importar copia</button></div><input id="backupImport" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(event)"><div id="dataStatus" class="mode-note" style="margin-top:10px">${escapeHtml(persistenceLabel())} · estado v${STATE_SCHEMA_VERSION}<br>${escapeHtml(backupLabel())}</div></div>
     <details class="demo-tools"><summary>Herramientas de validación</summary><div class="demo-actions"><button class="ghost" onclick="seedForgetMe()">Añadir 3 ejemplos a Forget Me</button><button class="danger-btn" onclick="resetDemo()">Reiniciar Beta</button></div></details>
     ${renderNav('progress')}`;
 }
@@ -1913,6 +1914,8 @@ function setDataStatus(message){
 }
 function exportBackup(){
   try{
+    state.lastBackupAt=Date.now();
+    save();
     const payload=backupPayload();
     const json=JSON.stringify(payload,null,2);
     const blob=new Blob([json],{type:'application/json'});
