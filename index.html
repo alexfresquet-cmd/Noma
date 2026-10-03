@@ -4,7 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f5f3ee" />
-  <title>Noma — MVP v0.18</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Noma — MVP v0.19</title>
   <style>
 :root {
   --bg: #f5f3ee;
@@ -291,7 +294,7 @@ button { cursor: pointer; }
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.18';
+const APP_VERSION = '0.19';
 const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
@@ -634,11 +637,20 @@ function normalize(s=''){
 }
 function escapeHtml(s=''){return s.replace(/[&<>"]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
 function knownCount(){ return state.units.filter(u=>u.status==='known').length; }
-// "left" is the number of pack units that still need first-pass evidence.
-// A first correct Word OR Sentence removes the unit from left. If that unit
-// later becomes unstable after a failure, it returns to left until recovered.
-function learnedCount(){ return state.units.filter(u=>((u.recognition||0)>=1 || (u.production||0)>=1) && u.status!=='unstable').length; }
-function leftCount(){ return PACK_SIZE - learnedCount(); }
+// Practice progress is tracked separately for Word and Sentence.
+// "Combined" means the same pack unit has evidence in both modes.
+function wordProgressCount(){ return state.units.filter(u=>(u.recognition||0)>=1 && u.status!=='unstable').length; }
+function sentenceProgressCount(){ return state.units.filter(u=>(u.production||0)>=1 && u.status!=='unstable').length; }
+function combinedProgressCount(){ return state.units.filter(u=>(u.recognition||0)>=1 && (u.production||0)>=1 && u.status!=='unstable').length; }
+function learnedCount(){ return combinedProgressCount(); }
+function modeProgressCount(mode=state.practiceMode||'mix'){
+  if(mode==='word') return wordProgressCount();
+  if(mode==='sentence') return sentenceProgressCount();
+  return combinedProgressCount();
+}
+function modeLeftCount(mode=state.practiceMode||'mix'){ return PACK_SIZE - modeProgressCount(mode); }
+function leftCount(){ return modeLeftCount(); }
+function progressSnapshot(){ return {word:wordProgressCount(),sentence:sentenceProgressCount(),combined:combinedProgressCount()}; }
 function textForgetCount(){ return state.units.filter(u=>u.reviewKind==='forget' && u.dueSession!=null).length; }
 function listenForgetCount(){ return state.units.filter(u=>u.listenDueSession!=null).length; }
 function pronounceForgetCount(){ return state.units.filter(u=>u.pronounceDueSession!=null).length; }
@@ -852,7 +864,7 @@ function buildSession(){
     state.lastSessionSummary={before:leftCount(),after:leftCount(),strengthened:0,mistakes:0,duration:0};
     state.screen='done'; save(); render(); return;
   }
-  state.session = { number:state.sessionNumber, mode, tasks:mixed, index:0, before:leftCount(), strengthened:0, mistakes:0, startedAt:Date.now(), response:null, listenPlayed:false, listenError:null };
+  state.session = { number:state.sessionNumber, mode, tasks:mixed, index:0, before:leftCount(), beforeProgress:progressSnapshot(), strengthened:0, mistakes:0, startedAt:Date.now(), response:null, listenPlayed:false, listenError:null };
   state.screen='exercise'; save(); render();
   requestAnimationFrame(()=>window.scrollTo(0,0));
 }
@@ -884,7 +896,7 @@ function buildListenSession(){
     state.lastSessionSummary={before:leftCount(),after:leftCount(),strengthened:0,mistakes:0,duration:0,mode:'listen'};
     state.screen='done'; save(); render(); return;
   }
-  state.session={number:state.sessionNumber,mode:'listen',tasks:mixed,index:0,before:leftCount(),strengthened:0,mistakes:0,startedAt:Date.now(),response:null,listenPlayed:false,listenError:null};
+  state.session={number:state.sessionNumber,mode:'listen',tasks:mixed,index:0,before:leftCount(),beforeProgress:progressSnapshot(),strengthened:0,mistakes:0,startedAt:Date.now(),response:null,listenPlayed:false,listenError:null};
   state.screen='exercise'; save(); render();
   requestAnimationFrame(()=>window.scrollTo(0,0));
 }
@@ -906,7 +918,7 @@ function buildPronounceSession(){
     tasks.push({type:'pronounce',unitId:u.id,reviewKind:'pronounce'}); used.add(u.id);
   }
   if(!tasks.length){ state.screen='home'; save(); render(); return; }
-  state.session={number:state.sessionNumber,mode:'pronounce',tasks:shuffleTasks(tasks).slice(0,4),index:0,before:leftCount(),strengthened:0,mistakes:0,startedAt:Date.now(),response:null,listenPlayed:false,listenError:null,pronounceListening:false,pronounceError:null,pronounceFailureRecorded:false};
+  state.session={number:state.sessionNumber,mode:'pronounce',tasks:shuffleTasks(tasks).slice(0,4),index:0,before:leftCount(),beforeProgress:progressSnapshot(),strengthened:0,mistakes:0,startedAt:Date.now(),response:null,listenPlayed:false,listenError:null,pronounceListening:false,pronounceError:null,pronounceFailureRecorded:false};
   state.screen='exercise'; save(); render(); requestAnimationFrame(()=>window.scrollTo(0,0));
 }
 
@@ -925,17 +937,18 @@ function nextTask(){
   s.pronounceFailureRecorded=false;
   s.index++;
   if(s.index>=s.tasks.length){
-    const summary={ before:s.before, after:leftCount(), strengthened:s.strengthened, mistakes:s.mistakes, duration:Math.max(1,Math.round((Date.now()-s.startedAt)/60000)) };
+    const summary={ before:s.before, after:leftCount(), beforeProgress:s.beforeProgress||progressSnapshot(), afterProgress:progressSnapshot(), mode:s.mode||'mix', strengthened:s.strengthened, mistakes:s.mistakes, duration:Math.max(1,Math.round((Date.now()-s.startedAt)/60000)) };
     state.lastSessionSummary=summary; state.session=null; state.screen='done'; save(); render();
   } else { save(); render(); requestAnimationFrame(()=>window.scrollTo(0,0)); }
 }
 function go(screen){ if('speechSynthesis' in window) window.speechSynthesis.cancel(); if(activeRecognition){try{activeRecognition.abort();}catch(e){} activeRecognition=null;} state.screen=screen; save(); render(); }
 
-function renderTop(){ return `<div class="topbar"><div class="brand">Noma</div><div class="lang">English</div></div>`; }
+function renderTop(){ return `<div class="topbar"><div class="brand">Noma</div><div class="lang">English · v${APP_VERSION}</div></div>`; }
 function renderNav(active){ return `<div class="bottom-dock"><nav class="bottom-nav"><button class="nav-btn ${active==='home'?'active':''}" onclick="go('home')">Hoy</button><button class="nav-btn ${active==='forget'?'active':''}" onclick="go('forget')">Forget Me</button><button class="nav-btn ${active==='progress'?'active':''}" onclick="go('progress')">Progreso</button><button class="nav-btn ${active==='pack'?'active':''}" onclick="go('pack')">Pack</button></nav></div>`; }
 
 function home(){
-  const known=knownCount(), learned=learnedCount(), left=leftCount(), forget=unstableCount();
+  const known=knownCount(), learned=combinedProgressCount(), left=modeLeftCount(), forget=unstableCount();
+  const wordDone=wordProgressCount(), sentenceDone=sentenceProgressCount(), modeDone=modeProgressCount(), modeLeft=modeLeftCount();
   const listenStats=listenFirstStats();
   const pronounceStats=pronounceFirstStats();
   const mode=state.practiceMode||'mix';
@@ -945,6 +958,7 @@ function home(){
   const dueListen=state.units.filter(u=>u.listenDueSession!=null && u.listenDueSession<=nextSession).length;
   const duePronounce=state.units.filter(u=>u.pronounceDueSession!=null && u.pronounceDueSession<=nextSession).length;
   const pct=Math.round(learned/PACK_SIZE*100);
+  const modePct=Math.round(modeDone/PACK_SIZE*100);
   const modeCopy={
     word:['Word','Inglés → castellano. Cuatro pruebas cortas.'],
     sentence:['Sentence','Castellano → inglés. Cuatro frases.'],
@@ -952,7 +966,7 @@ function home(){
   }[mode];
   const relevantDue=mode==='word'?dueWord:mode==='sentence'?dueSentence:(dueWord+dueSentence);
   return `${renderTop()}
-    <section class="hero"><div class="eyebrow">Everyday English</div><div class="big-number">${left}<span>left</span></div><div class="substat">${learned} fuera de pendientes · ${known} consolidated · ${forget} en Forget Me</div><div class="progress-line"><div style="width:${pct}%"></div></div></section>
+    <section class="hero"><div class="eyebrow">Word + Sentence</div><div class="big-number">${learned}<span>/ ${PACK_SIZE} consolidadas</span></div><div class="substat">${wordDone}/${PACK_SIZE} Word · ${sentenceDone}/${PACK_SIZE} Sentence · ${forget} en Forget Me</div><div class="progress-line"><div style="width:${pct}%"></div></div></section>
     <section class="card session-card">
       <div class="session-title"><strong>Practicar</strong><span>${relevantDue?'con repasos':'4 ejercicios'}</span></div>
       <div class="mode-picker" role="group" aria-label="Modo de práctica">
@@ -961,6 +975,10 @@ function home(){
         <button class="mode-btn ${mode==='mix'?'active':''}" onclick="setPracticeMode('mix')">Combinado</button>
       </div>
       <div class="mode-note"><b>${modeCopy[0]}</b> · ${modeCopy[1]}</div>
+      <div class="card" style="padding:14px 16px;border-radius:18px;box-shadow:none">
+        <div class="session-row"><span><b>${modeDone} / ${PACK_SIZE}</b> ${mode==='mix'?'con Word + Sentence':modeCopy[0]+' superadas'}</span><em>${modeLeft} pendientes</em></div>
+        <div class="progress-line" style="margin-top:12px"><div style="width:${modePct}%"></div></div>
+      </div>
       ${relevantDue?`<div class="session-row"><span>Forget Me listo</span><em>${Math.min(2,relevantDue)}</em></div>`:''}
       <button class="primary" onclick="buildSession()">Empezar</button>
     </section>
@@ -1333,19 +1351,36 @@ function pronounceTask(u){
 }
 
 function done(){
-  const x=state.lastSessionSummary||{before:leftCount(),after:leftCount(),strengthened:0,mistakes:0,duration:1};
-  return `${renderTop()}<section class="done"><h1>Done.</h1><p>${x.strengthened} elementos reforzados.<br>${x.mistakes ? `${x.mistakes} necesitan más tiempo.`:'Nada pendiente de esta sesión.'}</p><div class="delta">${x.before} → ${x.after} left</div><p>${x.after===x.before?'No ha salido ninguna unidad nueva de pendientes en esta sesión. Los aciertos pueden haber reforzado unidades que ya estaban abiertas.':`${x.before-x.after} unidad${x.before-x.after===1?'':'es'} ha${x.before-x.after===1?'':'n'} salido de pendientes.`}</p><button class="primary" onclick="go('home')">Volver a inicio</button></section>`;
+  const x=state.lastSessionSummary||{strengthened:0,mistakes:0,duration:1,mode:'mix',beforeProgress:progressSnapshot(),afterProgress:progressSnapshot()};
+  const before=x.beforeProgress||progressSnapshot(), after=x.afterProgress||progressSnapshot();
+  const delta=(key)=>Math.max(0,(after[key]||0)-(before[key]||0));
+  const practice=['word','sentence','mix'].includes(x.mode);
+  let progressBlock='';
+  if(practice){
+    const dw=delta('word'), ds=delta('sentence'), dc=delta('combined');
+    progressBlock='<div class="card" style="margin:28px 0 18px;box-shadow:none">'
+      +'<div class="session-row"><span>Word</span><em><b>'+after.word+' / '+PACK_SIZE+'</b>'+(dw?' · +'+dw:'')+'</em></div>'
+      +'<div class="session-row"><span>Sentence</span><em><b>'+after.sentence+' / '+PACK_SIZE+'</b>'+(ds?' · +'+ds:'')+'</em></div>'
+      +'<div class="session-row"><span>Word + Sentence</span><em><b>'+after.combined+' / '+PACK_SIZE+'</b>'+(dc?' · +'+dc:'')+'</em></div>'
+      +'</div>';
+  }
+  const changed=delta('word')||delta('sentence')||delta('combined');
+  const note=practice
+    ? (changed?'El avance se muestra por separado para que puedas ver qué parte ha mejorado.':'Has reforzado contenido ya abierto, pero no has añadido una unidad nueva a Word o Sentence.')
+    : 'Esta sesión refuerza una habilidad separada y no cambia los contadores de Word o Sentence.';
+  return renderTop()+'<section class="done"><h1>Done.</h1><p>'+x.strengthened+' elementos reforzados.<br>'+(x.mistakes?x.mistakes+' necesitan más tiempo.':'Nada pendiente de esta sesión.')+'</p>'+progressBlock+'<p>'+note+'</p><button class="primary" onclick="go(\'home\')">Volver a inicio</button></section>';
 }
 
 function progress(){
-  const known=knownCount(), learned=learnedCount(), left=leftCount(), unstable=unstableCount(), learning=learningCount();
+  const known=knownCount(), learned=combinedProgressCount(), left=modeLeftCount(), unstable=unstableCount(), learning=learningCount();
+  const wordDone=wordProgressCount(), sentenceDone=sentenceProgressCount();
   const mistakes=state.units.reduce((a,u)=>a+u.mistakes+(u.listenMistakes||0)+(u.pronounceMistakes||0),0);
   const listenStats=listenFirstStats();
   const pronounceStats=pronounceFirstStats();
   const pct=Math.round(learned/PACK_SIZE*100);
-  return `${renderTop()}<h1 class="section-title">Progreso</h1><p class="section-sub">"Left" mide unidades todavía pendientes de una primera evidencia correcta en Word o Sentence. La consolidación posterior se mide aparte.</p>
-    <div class="card"><div class="eyebrow">Everyday English</div><div class="big-number" style="font-size:64px">${left}<span>left</span></div><div class="progress-line"><div style="width:${pct}%"></div></div></div>
-    <div class="stat-grid"><div class="stat"><b>${learned}</b><span>Fuera de pendientes</span></div><div class="stat"><b>${known}</b><span>Consolidated</span></div><div class="stat"><b>${unstable}</b><span>Forget Me</span></div><div class="stat"><b>${mistakes}</b><span>Fallos registrados</span></div></div>
+  return `${renderTop()}<h1 class="section-title">Progreso</h1><p class="section-sub">Word y Sentence se miden por separado. El total Word + Sentence solo sube cuando una misma unidad está superada en ambos modos.</p>
+    <div class="card"><div class="eyebrow">Word + Sentence</div><div class="big-number" style="font-size:64px">${learned}<span>/ ${PACK_SIZE}</span></div><div class="progress-line"><div style="width:${pct}%"></div></div><div class="session-row" style="margin-top:14px"><span>Word</span><em>${wordDone}/${PACK_SIZE}</em></div><div class="session-row"><span>Sentence</span><em>${sentenceDone}/${PACK_SIZE}</em></div></div>
+    <div class="stat-grid"><div class="stat"><b>${learned}</b><span>Word + Sentence</span></div><div class="stat"><b>${known}</b><span>Memoria confirmada</span></div><div class="stat"><b>${unstable}</b><span>Forget Me</span></div><div class="stat"><b>${mistakes}</b><span>Fallos registrados</span></div></div>
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${listenStats.pct==null?'—':listenStats.pct+'%'}</strong><span>first-listen comprehension</span></div><p class="note" style="margin-bottom:0">${listenStats.attempted?`${listenStats.correct} de ${listenStats.attempted} frases nuevas entendidas a la primera.`:'Todavía no has hecho Listen Once.'}</p></div>
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${pronounceStats.pct==null?'—':pronounceStats.pct+'%'}</strong><span>pronounce recognizability</span></div><p class="note" style="margin-bottom:0">${pronounceStats.attempted?`${pronounceStats.correct} de ${pronounceStats.attempted} palabras nuevas reconocidas a la primera.`:'Todavía no has hecho Pronounce.'}</p></div>
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${Object.values(state.readerProgress||{}).filter(x=>x.attempts>0).length} / ${READER_TEXTS.length}</strong><span>Tiny Reader</span></div><p class="note" style="margin-bottom:0">Textos de prueba completados. Las preguntas de lectura no alteran el contador de palabras.</p></div>
@@ -1437,7 +1472,7 @@ function forgetMe(){
 }
 
 function pack(){
-  return `${renderTop()}<h1 class="section-title">Everyday English</h1><p class="section-sub">El MVP usa un pack finito de ${PACK_SIZE} unidades frecuentes. No hay otro pack activo.</p><div class="card"><div class="session-title"><strong>${learnedCount()} / ${PACK_SIZE}</strong><span>fuera de pendientes</span></div><div class="progress-line"><div style="width:${learnedCount()}%"></div></div><p class="note" style="margin-bottom:0">Una unidad deja de contar como left con su primer acierto en Word o Sentence. Si después falla y queda inestable, vuelve a pendientes hasta recuperarse. Consolidated sigue exigiendo evidencia más fuerte.</p></div><div class="list"><div class="list-item"><span>Pack activo</span><span>Everyday English</span></div><div class="list-item"><span>Tamaño</span><span>${PACK_SIZE}</span></div><div class="list-item"><span>Otros packs</span><span>No disponibles en MVP</span></div></div>${renderNav('pack')}`;
+  return `${renderTop()}<h1 class="section-title">Everyday English</h1><p class="section-sub">El MVP usa un pack finito de ${PACK_SIZE} unidades frecuentes. No hay otro pack activo.</p><div class="card"><div class="session-title"><strong>${combinedProgressCount()} / ${PACK_SIZE}</strong><span>Word + Sentence</span></div><div class="progress-line"><div style="width:${combinedProgressCount()}%"></div></div><p class="note" style="margin-bottom:0">Word y Sentence tienen progreso independiente. El total solo cuenta una unidad cuando ambos modos están superados; la memoria confirmada se mide aparte.</p><div class="session-row" style="margin-top:16px"><span>Word</span><em>${wordProgressCount()}/${PACK_SIZE}</em></div><div class="session-row"><span>Sentence</span><em>${sentenceProgressCount()}/${PACK_SIZE}</em></div></div><div class="list"><div class="list-item"><span>Pack activo</span><span>Everyday English</span></div><div class="list-item"><span>Tamaño</span><span>${PACK_SIZE}</span></div><div class="list-item"><span>Otros packs</span><span>No disponibles en MVP</span></div></div>${renderNav('pack')}`;
 }
 
 
