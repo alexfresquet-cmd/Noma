@@ -31,3 +31,18 @@ The Home hero shows the combined total. The practice selector shows the selected
 
 ## Web build
 The current prototype is published through GitHub Pages over HTTPS so Pronounce can use direct browser speech recognition without a keyboard-dictation fallback.
+
+
+## Consolidated baseline
+**v0.19 is the current consolidated baseline.**
+
+Confirmed in this baseline:
+- Word, Sentence and Combined practice.
+- Forget Me with Pending, Recurrent, Improving and Resolved states.
+- Listen Once.
+- Tiny Reader.
+- Pronounce over HTTPS.
+- Local progress with export/import.
+- Separate Word, Sentence and Word + Sentence counters.
+
+The counter model is considered good enough for real use, but intentionally remains open to adjustment after sustained usage. No further counter redesign should be made without evidence from actual use.
