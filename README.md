@@ -1,48 +1,47 @@
-# Noma v0.19
+# Noma — Beta 1
 
-Noma is a local-first language-learning prototype built around finite progress: learn, recall, consolidate, and remove what no longer needs attention.
+Noma is a local-first English-learning app built around finite progress: learn, recall, consolidate and remove what no longer needs attention.
 
-## Current modules
-- Word
-- Sentence
-- Combined practice
-- Forget Me
-- Listen Once
-- Tiny Reader
-- Pronounce
+## Beta 1 scope
 
-## Forget Me
-Forget Me now combines review scheduling and recurring-error tracking in one place:
+- **Everyday English**: 100 audited units with stable IDs.
+- **Word**
+- **Sentence**
+- **Combined practice**
+- **Forget Me**: Pending, Recurrent, Improving and Resolved states.
+- **Listen Once**
+- **Pronounce** over HTTPS.
+- **Tiny Reader**: 8 curated texts, each with 6 closed comprehension questions.
+- Separate **Word / Sentence / Word + Sentence** progress counters.
+- Export/import of a versioned JSON backup.
 
-- **Por repasar**: items that will return automatically.
-- **Recurrentes**: Word or Sentence errors that have repeated.
-- **Resueltos**: recurring errors that later recovered.
+## Local data
 
-A Word/Sentence error becomes recurrent after its second failure. After one successful recovery it remains visible as **Mejorando · 1/2**; a second later success resolves it.
+Beta 1 uses a real **SQLite database file** as its primary datastore in the browser. SQLite runs through `sql.js 1.14.2`; the exported database bytes are stored locally in IndexedDB.
 
-## Progress counters
-Progress is now explicit in three views:
+On first launch after v0.19, Noma automatically:
 
-- **Word**: units with successful Word evidence.
-- **Sentence**: units with successful Sentence evidence.
-- **Word + Sentence**: units completed in both modes.
+1. opens or creates the SQLite database;
+2. finds the existing Noma progress from the previous localStorage format;
+3. copies the newest valid state into SQLite;
+4. runs the versioned state migration;
+5. refreshes audited pack text by stable unit ID without resetting learning history.
 
-The Home hero shows the combined total. The practice selector shows the selected mode's own completed and pending counts. Session results show the Word, Sentence and combined deltas separately instead of a single ambiguous `left` change.
+Noma also maintains a synchronous emergency local mirror. JSON export remains the external recovery copy: deleting all browser/site data can remove both SQLite and the emergency mirror.
 
-## Web build
-The current prototype is published through GitHub Pages over HTTPS so Pronounce can use direct browser speech recognition without a keyboard-dictation fallback.
+See:
+- `docs/PERSISTENCE_BETA1.md`
+- `db/schema.sql`
 
+## Content freeze
 
-## Consolidated baseline
-**v0.19 is the current consolidated baseline.**
+The 100 Everyday English unit IDs are now persistent learning identifiers for Beta 1. Copy corrections may be migrated, but an ID must not silently be reused for an unrelated learning item.
 
-Confirmed in this baseline:
-- Word, Sentence and Combined practice.
-- Forget Me with Pending, Recurrent, Improving and Resolved states.
-- Listen Once.
-- Tiny Reader.
-- Pronounce over HTTPS.
-- Local progress with export/import.
-- Separate Word, Sentence and Word + Sentence counters.
+The audit and all content changes are documented in:
+- `docs/CONTENT_AUDIT_BETA1.md`
 
-The counter model is considered good enough for real use, but intentionally remains open to adjustment after sustained usage. No further counter redesign should be made without evidence from actual use.
+## Beta status
+
+**0.20.0-beta.1** is the first closed Beta candidate.
+
+The counter model from v0.19 remains intentionally unchanged unless real usage gives us evidence to revise it. Speak 15, Travel Pack, placement testing and additional packs remain out of scope for this Beta.
