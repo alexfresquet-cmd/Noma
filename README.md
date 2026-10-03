@@ -1,4 +1,4 @@
-# Noma v0.15
+# Noma v0.16
 
 Noma is a local-first language-learning prototype built around finite progress: learn, recall, consolidate, and remove what no longer needs attention.
 
@@ -10,10 +10,15 @@ Noma is a local-first language-learning prototype built around finite progress: 
 - Listen Once
 - Tiny Reader
 - Pronounce
-- Wrong Book
 
-## Wrong Book
-Wrong Book tracks only Word and Sentence errors. A first failure is observed; a second failure of the same item/type marks it as recurrent. Two later correct answers without another failure mark it as resolved.
+## Forget Me
+Forget Me now combines review scheduling and recurring-error tracking in one place:
+
+- **Por repasar**: items that will return automatically.
+- **Recurrentes**: Word or Sentence errors that have repeated.
+- **Resueltos**: recurring errors that later recovered.
+
+A Word/Sentence error becomes recurrent after its second failure. Two later successful recalls resolve it. Listen Once and Pronounce stay in the review queue but do not create recurring grammar/vocabulary patterns.
 
 ## Data
 The prototype stores progress in browser localStorage. The state schema is versioned and backups can be exported/imported. The planned Android version will move persistence to local SQLite.
