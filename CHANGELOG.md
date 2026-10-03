@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.20.0-beta.1 — Beta 1
+- Audited and froze the 100-unit Everyday English pack for Beta use.
+- Preserved stable IDs 1–100 so existing learning history can migrate without replaying learned material.
+- Corrected `rather` to `would rather` and clarified several ambiguous prompts/examples.
+- Expanded Tiny Reader from 2 to **8** curated texts; every text has 6 closed questions.
+- Migrated primary persistence from localStorage to a local **SQLite database file** powered by sql.js.
+- SQLite database bytes are persisted in IndexedDB with database schema version 1.
+- Added automatic migration from the v0.19 legacy localStorage state into SQLite.
+- Added canonical-content refresh by unit ID while preserving recognition, production, recall, errors and review history.
+- Added a synchronous emergency local mirror to recover from interrupted SQLite writes.
+- Kept versioned JSON export/import as the external disaster-recovery format.
+- Added SQLite integrity status and external-backup status to the Progress data card.
+- Added content-audit, persistence and third-party dependency documentation.
+- Preserves application state schema v4.
+
 ## v0.19 — Consolidated
 - Replaced the ambiguous single `left` display with explicit Word, Sentence and Word + Sentence progress.
 - Home now shows the combined Word + Sentence total out of 100.
