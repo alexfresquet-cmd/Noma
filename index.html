@@ -998,3 +998,502 @@ function checkWord(){
   const ok=meaningMatches(input,u);
   if(ok){
     markSuccess(u,'recognition'); s.strengthened++;
+    s.response={ok:true,answer:input}; save(); render();
+    return;
+  }
+  markFailure(u,'word'); s.mistakes++;
+  s.response={ok:false,answer:input}; save(); render();
+}
+function dontKnowWord(){
+  const u=getUnit(currentTask().unitId), s=state.session;
+  const pre={unit:snapshotUnit(u),strengthened:s.strengthened,mistakes:s.mistakes};
+  markFailure(u,'word'); s.mistakes++;
+  s.response={ok:false,answer:'',pre,explicitDontKnow:true}; save(); render();
+}
+function sentenceTask(u){
+  const r=state.session.response;
+  if(!r){
+    return `<div class="exercise-content"><div class="exercise-type">Sentence</div>
+      <div class="hint">Traduce al inglés.</div>
+      <div class="prompt-sentence">${escapeHtml(u.es)}</div>
+      <div class="answer-zone"><input id="sentenceInput" class="answer-input" autocomplete="off" autocapitalize="sentences" spellcheck="false" placeholder="Escribe la frase en inglés…" onkeydown="if(event.key==='Enter'){event.preventDefault();checkSentence()}">
+      <div class="word-actions"><button class="secondary" onclick="dontKnowSentence()">No la sé</button><button class="primary" onclick="checkSentence()">Comprobar</button></div></div></div>`;
+  }
+  const display=r.answer ? escapeHtml(r.answer) : 'No la sabía';
+  return `<div class="exercise-content"><div class="exercise-type">Sentence</div>
+    <div class="hint">Traduce al inglés.</div>
+    <div class="prompt-sentence">${escapeHtml(u.es)}</div>
+    <div class="answer-zone"><div class="answer-display ${r.answer?'':'muted'}">${display}</div>${resultActions(r.ok)}</div>
+    <div class="result-detail"><div class="reveal"><strong>${escapeHtml(u.en)}</strong></div>
+    <div class="feedback ${r.ok?'ok':'bad'}"><b>${r.ok?'Correcto.':(r.explicitDontKnow?'La dejamos pendiente.':'Todavía no.')}</b>${r.ok?'La frase queda registrada.':'Esta frase pasa a Forget Me y volverá más adelante.'}</div></div></div>`;
+}
+function normalizeEnglish(s=''){
+  let n=normalize(s);
+  const reps=[
+    ["i'm",'i am'],["you're",'you are'],["we're",'we are'],["they're",'they are'],["he's",'he is'],["she's",'she is'],["it's",'it is'],
+    ["don't",'do not'],["doesn't",'does not'],["didn't",'did not'],["can't",'cannot'],["won't",'will not'],["haven't",'have not'],["hasn't",'has not'],
+    ["i'll",'i will'],["you'll",'you will'],["we'll",'we will'],["they'll",'they will'],["i've",'i have'],["we've",'we have'],["i'd",'i would']
+  ];
+  for(const [a,b] of reps) n=n.replaceAll(a,b);
+  return n.replace(/\s+/g,' ').trim();
+}
+function sentenceMatches(answer,target){
+  const a=normalizeEnglish(answer), t=normalizeEnglish(target);
+  if(a===t) return true;
+  const tolerance=t.length>=42?2:1;
+  return Math.min(a.length,t.length)>=5 && levenshtein(a,t)<=tolerance;
+}
+function checkSentence(){
+  const input=document.getElementById('sentenceInput')?.value||''; if(!input.trim()) return;
+  const u=getUnit(currentTask().unitId), s=state.session;
+  const ok=sentenceMatches(input,u.en);
+  if(ok){
+    markSuccess(u,'production'); s.strengthened++;
+    s.response={ok:true,answer:input}; save(); render();
+    return;
+  }
+  markFailure(u,'sentence'); s.mistakes++;
+  s.response={ok:false,answer:input}; save(); render();
+}
+function dontKnowSentence(){
+  const u=getUnit(currentTask().unitId), s=state.session;
+  markFailure(u,'sentence'); s.mistakes++;
+  s.response={ok:false,answer:'',explicitDontKnow:true}; save(); render();
+}
+
+function recallTask(u){
+  const r=state.session.response;
+  const mode=currentTask().reviewMode || u.reviewMode || 'word';
+  const label=currentTask().reviewKind==='forget'?'Recall · Forget Me':'Recall · Memory check';
+  if(!r){
+    if(mode==='sentence'){
+      return `<div class="exercise-content"><div class="exercise-type">${label}</div><div class="hint">Traduce de nuevo al inglés.</div><div class="prompt-sentence">${escapeHtml(u.es)}</div><div class="answer-zone"><input id="recallInput" class="answer-input" autocomplete="off" autocapitalize="sentences" spellcheck="false" placeholder="Frase en inglés…" onkeydown="if(event.key==='Enter'){event.preventDefault();checkRecall()}"><div class="word-actions"><button class="secondary" onclick="dontKnowRecall()">No la sé</button><button class="primary" onclick="checkRecall()">Comprobar</button></div></div></div>`;
+    }
+    return `<div class="exercise-content"><div class="exercise-type">${label}</div><div class="prompt-word">${escapeHtml(u.term)}</div><div class="hint">Traduce al castellano.</div><div class="answer-zone"><input id="recallInput" class="answer-input" autocomplete="off" placeholder="Significado…" onkeydown="if(event.key==='Enter'){event.preventDefault();checkRecall()}"><div class="word-actions"><button class="secondary" onclick="dontKnowRecall()">No la sé</button><button class="primary" onclick="checkRecall()">Comprobar</button></div></div></div>`;
+  }
+  const answer=mode==='sentence'?u.en:u.meaning;
+  const display=r.answer ? escapeHtml(r.answer) : 'No la sabía';
+  return `<div class="exercise-content"><div class="exercise-type">${label}</div>${mode==='sentence'?`<div class="hint">Traduce de nuevo al inglés.</div><div class="prompt-sentence">${escapeHtml(u.es)}</div>`:`<div class="prompt-word">${escapeHtml(u.term)}</div><div class="hint">Traduce al castellano.</div>`}<div class="answer-zone"><div class="answer-display ${r.answer?'':'muted'}">${display}</div>${resultActions(r.ok)}</div><div class="result-detail"><div class="reveal"><strong>${escapeHtml(answer)}</strong></div><div class="feedback ${r.ok?'ok':'bad'}"><b>${r.ok?'Recordado.':'Sigue inestable.'}</b>${r.ok?'Sale de Forget Me por ahora.':'Volverá más adelante; no se repite inmediatamente.'}</div></div></div>`;
+}
+function dontKnowRecall(){
+  const u=getUnit(currentTask().unitId), s=state.session;
+  const mode=currentTask().reviewMode || u.reviewMode || 'word';
+  markFailure(u,mode); s.mistakes++;
+  s.response={ok:false,answer:'',explicitDontKnow:true}; save(); render();
+}
+function checkRecall(){
+  const input=document.getElementById('recallInput')?.value||''; if(!input.trim()) return;
+  const u=getUnit(currentTask().unitId), s=state.session;
+  const mode=currentTask().reviewMode || u.reviewMode || 'word';
+  const ok = mode==='sentence' ? sentenceMatches(input,u.en) : meaningMatches(input,u);
+  if(ok){
+    markSuccess(u,'recall'); s.strengthened++;
+    s.response={ok:true,answer:input}; save(); render();
+    return;
+  }
+  markFailure(u,mode); s.mistakes++;
+  s.response={ok:false,answer:input}; save(); render();
+}
+
+function chooseEnglishVoice(){
+  if(!('speechSynthesis' in window)) return null;
+  const voices=window.speechSynthesis.getVoices()||[];
+  return voices.find(v=>(v.lang||'').toLowerCase().startsWith('en-gb')) || voices.find(v=>(v.lang||'').toLowerCase().startsWith('en')) || null;
+}
+function setListenControls(enabled, message, isError=false){
+  const input=document.getElementById('listenInput');
+  const noBtn=document.getElementById('listenDontKnow');
+  const checkBtn=document.getElementById('listenCheck');
+  const status=document.getElementById('listenState');
+  if(input) input.disabled=!enabled;
+  if(noBtn) noBtn.disabled=!enabled;
+  if(checkBtn) checkBtn.disabled=!enabled;
+  if(status){status.textContent=message||'';status.classList.toggle('listen-error',!!isError);}
+}
+function playListen(){
+  const s=state.session, task=currentTask();
+  if(!s || !task || task.type!=='listen' || s.listenPlayed) return;
+  if(!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance==='undefined'){
+    s.listenError='El navegador no puede reproducir voz en este dispositivo.'; save(); render(); return;
+  }
+  const u=getUnit(task.unitId);
+  const utter=new SpeechSynthesisUtterance(u.en);
+  const voice=chooseEnglishVoice();
+  if(voice){utter.voice=voice;utter.lang=voice.lang;} else utter.lang='en-GB';
+  utter.rate=.92; utter.pitch=1;
+  s.listenPlayed=true; s.listenError=null; save();
+  const play=document.getElementById('listenPlay');
+  if(play){play.disabled=true;play.textContent='▶';}
+  setListenControls(false,'Escuchando…');
+  utter.onend=()=>{setListenControls(true,'Escuchado · escribe lo que has oído');};
+  utter.onerror=()=>{
+    s.listenPlayed=false; s.listenError='No se ha podido reproducir el audio. Puedes intentarlo de nuevo.'; save(); render();
+  };
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
+}
+function listenTask(u){
+  const s=state.session, r=s.response, played=!!s.listenPlayed;
+  if(!r){
+    const status=s.listenError || (played?'Escuchado · escribe lo que has oído':'Una reproducción');
+    return `<div class="exercise-content"><div class="exercise-type">${currentTask().reviewKind==='forget-listen'?'Listen Once · Forget Me':'Listen Once'}</div>
+      <div class="hint">Escucha una vez. La frase no aparece hasta corregir.</div>
+      <div class="listen-stage"><button id="listenPlay" class="listen-play" onclick="playListen()" ${played?'disabled':''} aria-label="Reproducir una vez">▶</button><div id="listenState" class="listen-state ${s.listenError?'listen-error':''}">${escapeHtml(status)}</div></div>
+      <div class="answer-zone"><input id="listenInput" class="answer-input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${played?'Escribe lo que has oído…':'Primero escucha el audio'}" ${played?'':'disabled'} onkeydown="if(event.key==='Enter'){event.preventDefault();checkListen()}">
+      <div class="word-actions"><button id="listenDontKnow" class="secondary" onclick="dontKnowListen()" ${played?'':'disabled'}>No lo entendí</button><button id="listenCheck" class="primary" onclick="checkListen()" ${played?'':'disabled'}>Comprobar</button></div></div></div>`;
+  }
+  const display=r.answer?escapeHtml(r.answer):'No lo entendí';
+  return `<div class="exercise-content"><div class="exercise-type">${currentTask().reviewKind==='forget-listen'?'Listen Once · Forget Me':'Listen Once'}</div>
+    <div class="hint">Esto es lo que has entendido.</div>
+    <div class="answer-zone"><div class="answer-display ${r.answer?'':'muted'}">${display}</div>${resultActions(r.ok)}</div>
+    <div class="result-detail"><div class="reveal"><strong>${escapeHtml(u.en)}</strong><div class="example"><small>${escapeHtml(u.es)}</small></div></div>
+    <div class="feedback ${r.ok?'ok':'bad'}"><b>${r.ok?'Entendido a la primera.':(r.explicitDontKnow?'Lo dejamos pendiente.':'No coincide todavía.')}</b>${r.ok?'Cuenta para tu comprensión a primera escucha.':'Vuelve a Listen Once más adelante; no afecta al contador de palabras.'}</div></div></div>`;
+}
+function checkListen(){
+  const input=document.getElementById('listenInput')?.value||''; if(!input.trim() || !state.session?.listenPlayed) return;
+  const u=getUnit(currentTask().unitId), s=state.session;
+  const ok=sentenceMatches(input,u.en);
+  if(ok){markListenSuccess(u);s.strengthened++;}
+  else {markListenFailure(u);s.mistakes++;}
+  s.response={ok,answer:input}; save(); render();
+}
+function dontKnowListen(){
+  if(!state.session?.listenPlayed) return;
+  const u=getUnit(currentTask().unitId), s=state.session;
+  markListenFailure(u); s.mistakes++;
+  s.response={ok:false,answer:'',explicitDontKnow:true}; save(); render();
+}
+
+function playPronounce(){
+  const task=currentTask(); if(!task || task.type!=='pronounce') return;
+  if(!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance==='undefined'){
+    state.session.pronounceError='El navegador no puede reproducir voz en este dispositivo.'; save(); render(); return;
+  }
+  const u=getUnit(task.unitId), utter=new SpeechSynthesisUtterance(u.term), voice=chooseEnglishVoice();
+  if(voice){utter.voice=voice;utter.lang=voice.lang;} else utter.lang='en-GB';
+  utter.rate=.82; utter.pitch=1;
+  window.speechSynthesis.cancel(); window.speechSynthesis.speak(utter);
+}
+function pronounceMatches(text,target){
+  const a=normalizeEnglish(text), t=normalizeEnglish(target);
+  if(a===t) return true;
+  return t.length>=7 && a.split(' ').length===t.split(' ').length && levenshtein(a,t)<=1;
+}
+function setPronounceError(message){
+  const s=state.session; if(!s) return;
+  s.pronounceListening=false; s.pronounceError=message||null;
+  save(); render();
+}
+function speechEnvironmentStatus(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!window.isSecureContext) return {ok:false,message:'Pronounce necesita abrir Noma desde una dirección HTTPS para usar el micrófono directamente.'};
+  if(!SR) return {ok:false,message:'Este navegador no ofrece reconocimiento de voz compatible. En Android usa Chrome actualizado.'};
+  return {ok:true,SR};
+}
+function finishPronounceAttempt(ok, heard){
+  const s=state.session, task=currentTask(); if(!s||!task||task.type!=='pronounce') return;
+  const u=getUnit(task.unitId), hadFailure=!!s.pronounceFailureRecorded;
+  s.pronounceListening=false; s.pronounceError=null;
+  if(ok){
+    markPronounceSuccess(u,hadFailure); s.strengthened++;
+  }else if(!hadFailure){
+    markPronounceFailure(u); s.mistakes++; s.pronounceFailureRecorded=true;
+  }else{
+    u.pronounceAttempts=(u.pronounceAttempts||0)+1; u.pronounceLastSeen=Date.now();
+  }
+  s.response={ok,heard:heard||'',hadFailure:hadFailure||!ok}; save(); render();
+}
+function startPronounceRecognition(){
+  const s=state.session, task=currentTask(); if(!s||!task||task.type!=='pronounce'||s.pronounceListening) return;
+  const env=speechEnvironmentStatus();
+  if(!env.ok){ setPronounceError(env.message); return; }
+  const SR=env.SR;
+  try{
+    if(activeRecognition){try{activeRecognition.abort();}catch(e){}}
+    const recognition=new SR(); activeRecognition=recognition;
+    recognition.lang='en-GB'; recognition.continuous=false; recognition.interimResults=false; recognition.maxAlternatives=5;
+    s.pronounceListening=true; s.pronounceError=null; save(); render();
+    recognition.onresult=(event)=>{
+      const taskNow=currentTask(); if(!taskNow||taskNow.type!=='pronounce') return;
+      const u=getUnit(taskNow.unitId); const alternatives=[];
+      const result=event.results?.[0];
+      if(result){ for(let i=0;i<result.length;i++) alternatives.push(result[i].transcript||''); }
+      const heard=alternatives[0]||''; const ok=alternatives.some(x=>pronounceMatches(x,u.term));
+      activeRecognition=null; finishPronounceAttempt(ok,heard);
+    };
+    recognition.onerror=(event)=>{
+      activeRecognition=null;
+      const code=event?.error||'';
+      if(code==='no-speech'){ setPronounceError('No he oído nada. Inténtalo otra vez.'); return; }
+      if(code==='not-allowed'||code==='service-not-allowed'){ setPronounceError('Permite el acceso al micrófono de Noma en Chrome y vuelve a intentarlo.'); return; }
+      if(code==='network'){ setPronounceError('El servicio de reconocimiento de voz no está disponible ahora. Inténtalo de nuevo más tarde.'); return; }
+      setPronounceError('No se ha podido iniciar el reconocimiento. Inténtalo otra vez.');
+    };
+    recognition.onend=()=>{
+      if(activeRecognition===recognition) activeRecognition=null;
+      if(state.session?.pronounceListening){ state.session.pronounceListening=false; save(); render(); }
+    };
+    recognition.start();
+  }catch(e){
+    activeRecognition=null; s.pronounceListening=false;
+    s.pronounceError='No se ha podido abrir el micrófono. Comprueba que Noma está abierta por HTTPS y que Chrome tiene permiso.';
+    save(); render();
+  }
+}
+function retryPronounce(){
+  const s=state.session; if(!s) return;
+  s.response=null; s.pronounceListening=false; s.pronounceError=null; save(); render();
+}
+function pronounceTask(u){
+  const s=state.session, r=s.response;
+  const label=currentTask().reviewKind==='forget-pronounce'?'Pronounce · Repaso':'Pronounce';
+  if(!r){
+    const env=speechEnvironmentStatus();
+    const idleText=env.ok?'Noma comprueba si el reconocimiento entiende la palabra.':env.message;
+    return `<div class="exercise-content"><div class="exercise-type">${label}</div><div class="prompt-word">${escapeHtml(u.term)}</div><div class="hint">Escúchala si quieres y después pronúnciala.</div><div class="pronounce-stage"><div class="pronounce-controls"><button class="pronounce-btn" onclick="playPronounce()">🔊 Escuchar</button><button class="pronounce-btn primary-mic" onclick="startPronounceRecognition()" ${s.pronounceListening||!env.ok?'disabled':''}>${s.pronounceListening?'Escuchando…':'● Hablar'}</button></div><div class="pronounce-status ${s.pronounceListening?'live':''} ${(s.pronounceError||!env.ok)?'error':''}">${escapeHtml(s.pronounceError||(s.pronounceListening?'Habla ahora':idleText))}</div></div></div>`;
+  }
+  const heard=r.heard?escapeHtml(r.heard):'—';
+  const retry=r.ok?'':`<button class="secondary" onclick="retryPronounce()">Reintentar</button>`;
+  return `<div class="exercise-content"><div class="exercise-type">${label}</div><div class="prompt-word">${escapeHtml(u.term)}</div><div class="pronounce-heard"><small>El móvil ha entendido</small>${heard}</div><div class="feedback ${r.ok?'ok':'bad'}"><b>${r.ok?'Reconocido.':'No ha coincidido.'}</b>${r.ok?(r.hadFailure?'Lo has conseguido tras repetirlo; volverá más adelante para comprobarlo.':'Ha sido reconocible a la primera.'):'Puedes repetirla ahora o dejarla pendiente para otra sesión.'}</div><div class="pronounce-result-actions">${retry||'<div class="status-chip ok">Correcto</div>'}<button class="primary" onclick="nextTask()">Siguiente</button></div><button class="ghost" style="width:100%;margin-top:10px" onclick="playPronounce()">Escuchar pronunciación</button></div>`;
+}
+
+function done(){
+  const x=state.lastSessionSummary||{before:leftCount(),after:leftCount(),strengthened:0,mistakes:0,duration:1};
+  return `${renderTop()}<section class="done"><h1>Done.</h1><p>${x.strengthened} elementos reforzados.<br>${x.mistakes ? `${x.mistakes} necesitan más tiempo.`:'Nada pendiente de esta sesión.'}</p><div class="delta">${x.before} → ${x.after} left</div><p>${x.after===x.before?'No todo progreso reduce el contador inmediatamente. Noma espera evidencia de recuerdo y producción.':'Algo ha quedado consolidado y ha desaparecido de pendientes.'}</p><button class="primary" onclick="go('home')">Volver a inicio</button></section>`;
+}
+
+function progress(){
+  const known=knownCount(), learned=learnedCount(), left=leftCount(), unstable=unstableCount(), learning=learningCount();
+  const mistakes=state.units.reduce((a,u)=>a+u.mistakes+(u.listenMistakes||0)+(u.pronounceMistakes||0),0);
+  const listenStats=listenFirstStats();
+  const pronounceStats=pronounceFirstStats();
+  const pct=Math.round(learned/PACK_SIZE*100);
+  return `${renderTop()}<h1 class="section-title">Progreso</h1><p class="section-sub">"Left" baja cuando ya has demostrado reconocimiento + producción. La consolidación posterior se mide aparte.</p>
+    <div class="card"><div class="eyebrow">Everyday English</div><div class="big-number" style="font-size:64px">${left}<span>left</span></div><div class="progress-line"><div style="width:${pct}%"></div></div></div>
+    <div class="stat-grid"><div class="stat"><b>${learned}</b><span>Learned</span></div><div class="stat"><b>${known}</b><span>Consolidated</span></div><div class="stat"><b>${unstable}</b><span>Forget Me</span></div><div class="stat"><b>${mistakes}</b><span>Fallos registrados</span></div></div>
+    <div class="card" style="margin:14px 0"><div class="session-title"><strong>${listenStats.pct==null?'—':listenStats.pct+'%'}</strong><span>first-listen comprehension</span></div><p class="note" style="margin-bottom:0">${listenStats.attempted?`${listenStats.correct} de ${listenStats.attempted} frases nuevas entendidas a la primera.`:'Todavía no has hecho Listen Once.'}</p></div>
+    <div class="card" style="margin:14px 0"><div class="session-title"><strong>${pronounceStats.pct==null?'—':pronounceStats.pct+'%'}</strong><span>pronounce recognizability</span></div><p class="note" style="margin-bottom:0">${pronounceStats.attempted?`${pronounceStats.correct} de ${pronounceStats.attempted} palabras nuevas reconocidas a la primera.`:'Todavía no has hecho Pronounce.'}</p></div>
+    <div class="card" style="margin:14px 0"><div class="session-title"><strong>${Object.values(state.readerProgress||{}).filter(x=>x.attempts>0).length} / ${READER_TEXTS.length}</strong><span>Tiny Reader</span></div><p class="note" style="margin-bottom:0">Textos de prueba completados. Las preguntas de lectura no alteran el contador de palabras.</p></div>
+    <div class="list"><div class="list-item"><span>Reconocimiento</span><span>${state.units.reduce((a,u)=>a+u.recognition,0)}</span></div><div class="list-item"><span>Producción</span><span>${state.units.reduce((a,u)=>a+u.production,0)}</span></div><div class="list-item"><span>Recalls superados</span><span>${state.units.reduce((a,u)=>a+u.recall,0)}</span></div><div class="list-item"><span>Listen Once correctos</span><span>${state.units.reduce((a,u)=>a+(u.listenCorrect||0),0)}</span></div><div class="list-item"><span>Pronounce reconocidos</span><span>${state.units.reduce((a,u)=>a+(u.pronounceCorrect||0),0)}</span></div></div>
+    <div class="card data-card"><div class="eyebrow">Datos locales</div><p class="note" style="margin:0 0 14px">El progreso vive solo en este dispositivo. Haz una copia si quieres poder recuperarlo tras borrar datos, reinstalar o cambiar de versión.</p><div class="demo-actions" style="margin-top:0"><button class="ghost" onclick="exportBackup()">Exportar copia</button><button class="ghost" onclick="document.getElementById('backupImport').click()">Importar copia</button></div><input id="backupImport" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(event)"><div id="dataStatus" class="mode-note" style="margin-top:10px">Esquema de datos v${STATE_SCHEMA_VERSION} · Noma v${APP_VERSION}</div></div>
+    <details class="demo-tools"><summary>Herramientas de validación</summary><div class="demo-actions"><button class="ghost" onclick="seedForgetMe()">Añadir 3 ejemplos a Forget Me</button><button class="danger-btn" onclick="resetDemo()">Reiniciar MVP</button></div></details>
+    ${renderNav('progress')}`;
+}
+
+function forgetMe(){
+  const now=state.sessionNumber||0;
+  const entries=[];
+  for(const u of state.units){
+    if(u.reviewKind==='forget' && u.dueSession!=null){
+      entries.push({due:u.dueSession,type:'text',u});
+    }
+    if(u.listenDueSession!=null){
+      entries.push({due:u.listenDueSession,type:'listen',u});
+    }
+    if(u.pronounceDueSession!=null){
+      entries.push({due:u.pronounceDueSession,type:'pronounce',u});
+    }
+  }
+  entries.sort((a,b)=>(a.due-b.due)||((b.u.mistakes||0)+(b.u.listenMistakes||0)-(a.u.mistakes||0)-(a.u.listenMistakes||0)));
+  const rows=entries.length?entries.map(({due,type,u})=>{
+    const delta=Math.max(0,(due||now)-now);
+    const when=delta<=1?'próxima sesión':`en ${delta} sesiones`;
+    if(type==='listen'){
+      return `<details class="forget-item"><summary><span><b>${escapeHtml(u.term)}</b><small>Listen Once · ${u.listenMistakes||0} fallo${(u.listenMistakes||0)===1?'':'s'}</small></span><em>${when}</em></summary><div class="forget-detail"><span class="listen-badge">AUDIO</span><p>${escapeHtml(u.en)}</p><small>${escapeHtml(u.es)}</small></div></details>`;
+    }
+    if(type==='pronounce'){
+      return `<details class="forget-item"><summary><span><b>${escapeHtml(u.term)}</b><small>Pronounce · ${u.pronounceMistakes||0} fallo${(u.pronounceMistakes||0)===1?'':'s'}</small></span><em>${when}</em></summary><div class="forget-detail"><span class="listen-badge">VOICE</span><p>Vuelve a pronunciarla para comprobar que el reconocimiento la entiende.</p></div></details>`;
+    }
+    const kind=(u.reviewMode||'word')==='sentence'?'Sentence':'Word';
+    return `<details class="forget-item"><summary><span><b>${escapeHtml(u.term)}</b><small>${kind} · ${u.mistakes} fallo${u.mistakes===1?'':'s'}</small></span><em>${when}</em></summary><div class="forget-detail"><strong>${escapeHtml(u.meaning)}</strong><p>${escapeHtml(u.en)}</p><small>${escapeHtml(u.es)}</small></div></details>`;
+  }).join(''):`<div class="empty-state"><b>Forget Me está vacío.</b><p>Lo que falles en Word, Sentence, Listen Once o Pronounce aparecerá aquí y volverá cuando toque.</p></div>`;
+  return `${renderTop()}<h1 class="section-title">Forget Me</h1><p class="section-sub">Aquí puedes ver qué ha quedado pendiente y cuándo volverá. Listen Once y Pronounce mantienen colas separadas y no alteran tu contador de palabras.</p><div class="forget-list">${rows}</div>${renderNav('forget')}`;
+}
+
+function pack(){
+  return `${renderTop()}<h1 class="section-title">Everyday English</h1><p class="section-sub">El MVP usa un pack finito de ${PACK_SIZE} unidades frecuentes. No hay otro pack activo.</p><div class="card"><div class="session-title"><strong>${learnedCount()} / ${PACK_SIZE}</strong><span>learned</span></div><div class="progress-line"><div style="width:${learnedCount()}%"></div></div><p class="note" style="margin-bottom:0">Una unidad deja de contar como left tras reconocimiento + producción. El recuerdo posterior decide si queda consolidada o vuelve a Forget Me.</p></div><div class="list"><div class="list-item"><span>Pack activo</span><span>Everyday English</span></div><div class="list-item"><span>Tamaño</span><span>${PACK_SIZE}</span></div><div class="list-item"><span>Otros packs</span><span>No disponibles en MVP</span></div></div>${renderNav('pack')}`;
+}
+
+
+function readerText(id){ return READER_TEXTS.find(t=>t.id===id); }
+function readerStatus(id){
+  const p=state.readerProgress?.[id];
+  if(!p?.attempts) return 'Sin leer';
+  const errors=Math.max(0,6-(p.lastScore||0));
+  if(errors>0) return `${errors} ${errors===1?'fallo':'fallos'} · ${p.lastScore}/6 última`;
+  return `6/6 · ${p.attempts===1?'1 lectura':`${p.attempts} lecturas`}`;
+}
+function readerSortKey(t, index){
+  const p=state.readerProgress?.[t.id];
+  if(!p?.attempts) return {group:0, errors:0, date:0, index};
+  const errors=Math.max(0,6-(p.lastScore||0));
+  if(errors>0) return {group:1, errors, date:p.lastRead||0, index};
+  return {group:2, errors:0, date:p.lastRead||0, index};
+}
+function readerLibrary(){
+  const progress=state.readerProgress||{};
+  const unread=READER_TEXTS.filter(t=>!(progress[t.id]?.attempts));
+  const completed=READER_TEXTS.filter(t=>(progress[t.id]?.attempts||0)>0).sort((a,b)=>{
+    const pa=progress[a.id], pb=progress[b.id];
+    const ea=Math.max(0,6-(pa.lastScore||0)), eb=Math.max(0,6-(pb.lastScore||0));
+    const aHas=ea>0, bHas=eb>0;
+    if(aHas!==bHas) return aHas?-1:1;
+    if(aHas && ea!==eb) return eb-ea;
+    if(aHas && (pa.lastRead||0)!==(pb.lastRead||0)) return (pa.lastRead||0)-(pb.lastRead||0);
+    if(!aHas && (pa.lastRead||0)!==(pb.lastRead||0)) return (pb.lastRead||0)-(pa.lastRead||0);
+    return READER_TEXTS.indexOf(a)-READER_TEXTS.indexOf(b);
+  });
+
+  function card(t, isUnread){
+    const p=progress[t.id];
+    const errors=p?.attempts?Math.max(0,6-(p.lastScore||0)):0;
+    const badge=isUnread
+      ? '<span class="reader-status-badge pending">Pendiente</span>'
+      : errors>0
+        ? `<span class="reader-status-badge errors">${errors} ${errors===1?'fallo':'fallos'} · ${p.lastScore}/6</span>`
+        : `<span class="reader-status-badge done">Completado · 6/6</span>`;
+    return `<article class="reader-card"><div>${badge}<h2 style="margin-top:10px">${escapeHtml(t.title)}</h2><p>${escapeHtml(t.description)}</p></div><div class="reader-meta"><span>${t.words} palabras</span><span>~${t.minutes} min</span><span>6 preguntas</span>${!isUnread&&p?.attempts>1?`<span>${p.attempts} lecturas</span>`:''}</div><button class="secondary" onclick="startReader('${t.id}')">${isUnread?'Leer':'Releer'}</button></article>`;
+  }
+
+  const pendingHtml=unread.length
+    ? unread.map(t=>card(t,true)).join('')
+    : '<div class="reader-group-empty">No tienes textos pendientes de primera lectura.</div>';
+  const completedHtml=completed.length
+    ? completed.map(t=>card(t,false)).join('')
+    : '<div class="reader-group-empty">Aún no has completado ningún texto.</div>';
+
+  return `${renderTop()}<h1 class="section-title">Tiny Reader</h1><p class="section-sub">Lecturas del pack Everyday English con seis preguntas de comprensión.</p><div class="reader-library"><section class="reader-group pending"><div class="reader-group-head"><h2>Pendientes de leer</h2><span>${unread.length}</span></div>${pendingHtml}</section><section class="reader-group completed"><div class="reader-group-head"><h2>Completados</h2><span>${completed.length}</span></div>${completedHtml}</section></div>${renderNav('home')}`;
+}
+function startReader(id){
+  const t=readerText(id); if(!t) return;
+  state.readerSession={textId:id,phase:'reading',questionIndex:0,score:0,answers:[],selected:null,answered:false,finished:false,startedAt:Date.now()};
+  state.screen='reader'; save(); render(); requestAnimationFrame(()=>window.scrollTo(0,0));
+}
+function exitReader(){ state.readerSession=null; state.screen='readerLibrary'; save(); render(); requestAnimationFrame(()=>window.scrollTo(0,0)); }
+function beginReaderQuestions(){
+  if(!state.readerSession) return;
+  state.readerSession.phase='quiz'; state.readerSession.questionIndex=0; state.readerSession.selected=null; state.readerSession.answered=false;
+  save(); render(); requestAnimationFrame(()=>window.scrollTo(0,0));
+}
+function answerReaderOption(index){
+  const s=state.readerSession, t=s&&readerText(s.textId); if(!s||!t||s.phase!=='quiz'||s.answered) return;
+  const q=t.questions[s.questionIndex]; if(!q || index<0 || index>=q.options.length) return;
+  const ok=index===q.correct;
+  s.selected=index; s.answered=true; if(ok) s.score++;
+  s.answers.push({questionIndex:s.questionIndex,selected:index,correct:ok});
+  save(); render();
+}
+function nextReaderQuestion(){
+  const s=state.readerSession, t=s&&readerText(s.textId); if(!s||!t||!s.answered) return;
+  if(s.questionIndex>=t.questions.length-1){ finishReader(); return; }
+  s.questionIndex++; s.selected=null; s.answered=false; save(); render(); requestAnimationFrame(()=>window.scrollTo(0,0));
+}
+function finishReader(){
+  const s=state.readerSession, t=s&&readerText(s.textId); if(!s||!t) return;
+  const prev=state.readerProgress[t.id]||{attempts:0,bestScore:0,lastScore:0,lastRead:null};
+  state.readerProgress[t.id]={attempts:(prev.attempts||0)+1,bestScore:Math.max(prev.bestScore||0,s.score),lastScore:s.score,lastRead:Date.now()};
+  s.phase='result'; s.finished=true; save(); render(); requestAnimationFrame(()=>window.scrollTo(0,0));
+}
+function readerScreen(){
+  const s=state.readerSession, t=s&&readerText(s.textId); if(!s||!t){state.screen='readerLibrary';save();return readerLibrary();}
+  if(s.phase==='reading'){
+    const paragraphs=t.paragraphs.map(p=>`<p>${escapeHtml(p)}</p>`).join('');
+    return `<div class="reader-head"><button class="reader-back" onclick="exitReader()">←</button><div class="reader-head-copy"><b>Tiny Reader</b><span>${t.words} palabras · ~${t.minutes} min</span></div></div><article class="reader-article"><h1>${escapeHtml(t.title)}</h1><p class="reader-lede">Lee a tu ritmo. Las preguntas aparecen solo cuando termines el texto.</p><div class="reader-body">${paragraphs}</div><button class="primary reader-start-quiz" onclick="beginReaderQuestions()">Responder 6 preguntas</button></article>`;
+  }
+  if(s.phase==='quiz'){
+    const q=t.questions[s.questionIndex], total=t.questions.length, current=s.questionIndex+1, progress=Math.round((s.questionIndex/total)*100);
+    const options=q.options.map((opt,i)=>{
+      let cls='reader-option';
+      if(s.answered){
+        if(i===q.correct) cls+=' correct';
+        else if(i===s.selected) cls+=' wrong';
+        else cls+=' dim';
+      }
+      return `<button class="${cls}" onclick="answerReaderOption(${i})" ${s.answered?'disabled':''}>${escapeHtml(opt)}</button>`;
+    }).join('');
+    const feedback=s.answered?`<div class="reader-feedback ${s.selected===q.correct?'ok':'bad'}"><b>${s.selected===q.correct?'Correcto.':'No exactamente.'}</b>${s.selected===q.correct?'Has entendido este punto del texto.':`La respuesta es: ${escapeHtml(q.options[q.correct])}`}</div><button class="primary reader-next" onclick="nextReaderQuestion()">${current===total?'Ver resultado':'Siguiente'}</button>`:'';
+    return `<div class="exercise-head"><button class="back" onclick="exitReader()">←</button><div class="step-track"><div style="width:${progress}%"></div></div><div class="step-count">${current}/${total}</div></div><div class="reader-question-wrap"><div class="exercise-type">${escapeHtml(t.title)}</div><div class="reader-question">${escapeHtml(q.q)}</div><div class="reader-options">${options}</div>${feedback}</div>`;
+  }
+  const progress=state.readerProgress[t.id]||{lastScore:s.score,bestScore:s.score};
+  return `<div class="reader-head"><button class="reader-back" onclick="exitReader()">←</button><div class="reader-head-copy"><b>Tiny Reader</b><span>${escapeHtml(t.title)}</span></div></div><section class="reader-result"><div class="eyebrow">Comprensión</div><div class="reader-score">${s.score}<span>/ 6</span></div><p>${s.score===6?'Has respondido correctamente las seis preguntas.':`Has acertado ${s.score} de 6. Puedes releer el texto cuando quieras; no afecta al contador de palabras.`}</p><div class="reader-result-actions"><button class="primary" onclick="exitReader()">Volver a lecturas</button><button class="secondary" onclick="startReader('${t.id}')">Releer texto</button></div></section>`;
+}
+
+function backupPayload(){
+  const snapshot=JSON.parse(JSON.stringify(state));
+  snapshot.session=null;
+  if(snapshot.screen==='exercise'||snapshot.screen==='done') snapshot.screen='home';
+  snapshot.schemaVersion=STATE_SCHEMA_VERSION;
+  return {
+    format:BACKUP_FORMAT,
+    backupVersion:BACKUP_VERSION,
+    appVersion:APP_VERSION,
+    createdAt:new Date().toISOString(),
+    packSize:PACK_SIZE,
+    state:snapshot
+  };
+}
+function setDataStatus(message){
+  const el=document.getElementById('dataStatus');
+  if(el) el.textContent=message;
+}
+function exportBackup(){
+  try{
+    const payload=backupPayload();
+    const json=JSON.stringify(payload,null,2);
+    const blob=new Blob([json],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const stamp=new Date().toISOString().slice(0,10);
+    const a=document.createElement('a');
+    a.href=url; a.download=`noma-backup-${stamp}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    setDataStatus('Copia exportada · guárdala en un lugar seguro');
+  }catch(e){
+    setDataStatus('No se pudo exportar la copia en este navegador');
+  }
+}
+function validateBackup(payload){
+  if(!payload || payload.format!==BACKUP_FORMAT || payload.backupVersion!==BACKUP_VERSION) throw new Error('Formato de copia no reconocido');
+  if(!payload.state || !Array.isArray(payload.state.units) || payload.state.units.length!==PACK_SIZE) throw new Error('La copia no corresponde al pack actual');
+  const ids=payload.state.units.map(u=>u.id);
+  if(new Set(ids).size!==PACK_SIZE || !baseUnits.every(u=>ids.includes(u.id))) throw new Error('Las unidades de la copia no son válidas');
+  return migrateState(payload.state);
+}
+async function importBackup(event){
+  const input=event?.target;
+  const file=input?.files?.[0];
+  if(!file) return;
+  try{
+    const text=await file.text();
+    const payload=JSON.parse(text);
+    const restored=validateBackup(payload);
+    if(!confirm('Importar esta copia sustituirá el progreso actual de Noma en este dispositivo. ¿Continuar?')){ input.value=''; return; }
+    state=restored;
+    state.screen='progress'; state.session=null;
+    save(); render();
+    setDataStatus(`Copia restaurada · ${payload.createdAt?new Date(payload.createdAt).toLocaleDateString():'fecha desconocida'}`);
+  }catch(e){
+    alert(`No se pudo importar la copia. ${e?.message||''}`.trim());
+  }finally{ if(input) input.value=''; }
+}
+
+function seedForgetMe(){
+  state.units.slice(0,3).forEach((u,i)=>{u.status='unstable';u.due=true;u.dueSession=(state.sessionNumber||0)+1+i;u.reviewKind='forget';u.reviewMode=i%2?'sentence':'word';u.mistakes=Math.max(1,u.mistakes);u.recognition=Math.max(1,u.recognition);}); save(); render();
+}
+function resetDemo(){ if(confirm('¿Reiniciar todo el progreso del MVP?')){state=initialState();save();render();} }
+
+function render(){
+  const app=document.getElementById('app');
+  const screens={home,exercise,done,forget:forgetMe,progress,pack,readerLibrary,reader:readerScreen};
+  app.classList.toggle('exercise-shell',state.screen==='exercise');
+  app.innerHTML=(screens[state.screen]||home)();
+  if(state.screen!=='exercise') window.scrollTo(0,0);
+}
+window.go=go; window.buildSession=buildSession; window.buildListenSession=buildListenSession; window.buildPronounceSession=buildPronounceSession; window.checkWord=checkWord; window.dontKnowWord=dontKnowWord; window.checkSentence=checkSentence; window.dontKnowSentence=dontKnowSentence; window.checkRecall=checkRecall; window.nextTask=nextTask; window.seedForgetMe=seedForgetMe; window.resetDemo=resetDemo; window.playListen=playListen; window.checkListen=checkListen; window.dontKnowListen=dontKnowListen; window.exportBackup=exportBackup; window.importBackup=importBackup; window.startReader=startReader; window.exitReader=exitReader; window.beginReaderQuestions=beginReaderQuestions; window.answerReaderOption=answerReaderOption; window.nextReaderQuestion=nextReaderQuestion; window.playPronounce=playPronounce; window.startPronounceRecognition=startPronounceRecognition; window.retryPronounce=retryPronounce;
+// A fresh launch always opens on Hoy. Learning history remains untouched.
+state.screen='home'; state.session=null; state.readerSession=null; save();
+render();
+
+</script>
+</body>
+</html>
