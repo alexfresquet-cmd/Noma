@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f5f3ee" />
-  <title>Noma — MVP v0.14</title>
+  <title>Noma — MVP v0.15</title>
   <style>
 :root {
   --bg: #f5f3ee;
@@ -262,6 +262,30 @@ button { cursor: pointer; }
 .pronounce-result-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 @media(max-width:380px){.pronounce-btn{min-height:56px}.pronounce-controls,.pronounce-result-actions{gap:8px}}
 
+/* v0.15: Wrong Book — recurrent Word/Sentence errors */
+.wrong-home-card{margin-top:12px;display:grid;gap:14px}
+.wrong-home-copy{color:var(--muted);font-size:14px;line-height:1.45;margin:0}
+.wrong-metric{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.wrong-metric span{color:var(--muted);font-size:13px}
+.wrong-metric b{font-size:28px;letter-spacing:-.04em}
+.wrong-section{display:grid;gap:10px;margin:18px 0 28px}
+.wrong-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:0 2px}
+.wrong-section-head h2{font-size:18px;margin:0;letter-spacing:-.025em}
+.wrong-section-head span{font-size:13px;color:var(--muted)}
+.wrong-card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:17px;display:grid;gap:11px}
+.wrong-card.recurrent{border-color:#e5c9c3}
+.wrong-card.resolved{opacity:.72}
+.wrong-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.wrong-title{font-size:18px;font-weight:740;line-height:1.25;letter-spacing:-.025em}
+.wrong-badge{font-size:11px;font-weight:780;border-radius:999px;padding:5px 8px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.wrong-badge.recurrent{background:#f4e8e5;color:var(--danger)}
+.wrong-badge.resolved{background:#e7efe9;color:#315d47}
+.wrong-answer{font-size:14px;line-height:1.45;color:var(--muted)}
+.wrong-answer b{color:var(--text)}
+.wrong-progress{font-size:12px;color:var(--muted)}
+.wrong-empty{padding:22px;border:1px dashed var(--line);border-radius:18px;color:var(--muted);line-height:1.45}
+.wrong-empty b{color:var(--text)}
+
 </style>
 </head>
 <body>
@@ -269,8 +293,8 @@ button { cursor: pointer; }
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.14';
-const STATE_SCHEMA_VERSION = 3;
+const APP_VERSION = '0.15';
+const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
 
@@ -542,6 +566,7 @@ function initialState(){
     practiceMode: 'mix',
     readerProgress: {},
     readerSession: null,
+    wrongBook: {},
     schemaVersion: STATE_SCHEMA_VERSION
   };
 }
@@ -571,6 +596,7 @@ function migrateState(x){
   x.practiceMode = ['word','sentence','mix'].includes(x.practiceMode) ? x.practiceMode : 'mix';
   x.readerProgress = x.readerProgress && typeof x.readerProgress==='object' ? x.readerProgress : {};
   x.readerSession = null;
+  x.wrongBook = x.wrongBook && typeof x.wrongBook==='object' ? x.wrongBook : {};
   if(['reader','readerLibrary'].includes(x.screen)) x.screen='home';
   x.units = x.units.map(u => {
     let dueSession = Number.isFinite(u.dueSession) ? u.dueSession : (u.due ? x.sessionNumber + 1 : null);
@@ -629,6 +655,38 @@ function pronounceFirstStats(){
   return {attempted:attempted.length,correct,pct:attempted.length?Math.round(correct/attempted.length*100):null};
 }
 function learningCount(){ return state.units.filter(u=>u.status==='learning' || u.status==='unstable').length; }
+
+function wrongKey(u,mode){ return `${u.id}:${mode}`; }
+function recordWrong(u,mode,answer=''){
+  if(!['word','sentence'].includes(mode)) return;
+  state.wrongBook = state.wrongBook || {};
+  const key=wrongKey(u,mode), prev=state.wrongBook[key]||{};
+  state.wrongBook[key]={
+    unitId:u.id,
+    mode,
+    failures:(prev.failures||0)+1,
+    successesAfterFailure:0,
+    lastWrongAt:Date.now(),
+    lastRightAt:prev.lastRightAt||null,
+    lastAnswer:String(answer||'').trim(),
+    resolvedAt:null
+  };
+}
+function recordRight(u,mode){
+  if(!['word','sentence'].includes(mode) || !state.wrongBook) return;
+  const key=wrongKey(u,mode), entry=state.wrongBook[key];
+  if(!entry || entry.resolvedAt) return;
+  entry.successesAfterFailure=(entry.successesAfterFailure||0)+1;
+  entry.lastRightAt=Date.now();
+  if(entry.successesAfterFailure>=2) entry.resolvedAt=Date.now();
+}
+function wrongEntries(){
+  return Object.values(state.wrongBook||{}).filter(e=>e&&getUnit(e.unitId)&&['word','sentence'].includes(e.mode));
+}
+function recurrentWrongCount(){ return wrongEntries().filter(e=>!e.resolvedAt&&(e.failures||0)>=2).length; }
+function observedWrongCount(){ return wrongEntries().filter(e=>!e.resolvedAt&&(e.failures||0)===1).length; }
+function resolvedWrongCount(){ return wrongEntries().filter(e=>!!e.resolvedAt).length; }
+
 function maybeKnown(u){
   if(u.recognition>=1 && u.production>=1 && u.recall>=1){
     u.status='known'; u.due=false; u.dueSession=null; u.reviewKind=null;
@@ -870,6 +928,7 @@ function home(){
   const known=knownCount(), learned=learnedCount(), left=leftCount(), forget=unstableCount();
   const listenStats=listenFirstStats();
   const pronounceStats=pronounceFirstStats();
+  const wrongRecurrent=recurrentWrongCount(), wrongObserved=observedWrongCount();
   const mode=state.practiceMode||'mix';
   const nextSession=(state.sessionNumber||0)+1;
   const dueWord=state.units.filter(u=>u.dueSession!=null && u.dueSession<=nextSession && u.status!=='known' && (u.reviewMode||'word')==='word').length;
@@ -909,6 +968,12 @@ function home(){
       <div class="pronounce-metric"><span>Reconocido a la primera</span><b>${pronounceStats.pct==null?'—':pronounceStats.pct+'%'}</b></div>
       ${duePronounce?`<div class="session-row"><span>Pronounce pendiente</span><em>${Math.min(2,duePronounce)}</em></div>`:''}
       <button class="secondary" onclick="buildPronounceSession()">Empezar Pronounce</button>
+    </section>
+    <section class="card wrong-home-card">
+      <div class="session-title"><strong>Wrong Book</strong><span>${wrongRecurrent?wrongRecurrent+' recurrentes':wrongObserved?wrongObserved+' en observación':'limpio'}</span></div>
+      <p class="wrong-home-copy">Word y Sentence que se te resisten. Un error se vuelve recurrente al repetirse y se resuelve tras dos aciertos posteriores.</p>
+      <div class="wrong-metric"><span>Errores recurrentes activos</span><b>${wrongRecurrent}</b></div>
+      <button class="secondary" onclick="go('wrongBook')">Abrir Wrong Book</button>
     </section>
     <section class="card reader-home-card">
       <div class="session-title"><strong>Tiny Reader</strong><span>2 textos · 6 preguntas</span></div>
@@ -997,17 +1062,17 @@ function checkWord(){
   const u=getUnit(currentTask().unitId), s=state.session;
   const ok=meaningMatches(input,u);
   if(ok){
-    markSuccess(u,'recognition'); s.strengthened++;
+    markSuccess(u,'recognition'); recordRight(u,'word'); s.strengthened++;
     s.response={ok:true,answer:input}; save(); render();
     return;
   }
-  markFailure(u,'word'); s.mistakes++;
+  markFailure(u,'word'); recordWrong(u,'word',input); s.mistakes++;
   s.response={ok:false,answer:input}; save(); render();
 }
 function dontKnowWord(){
   const u=getUnit(currentTask().unitId), s=state.session;
   const pre={unit:snapshotUnit(u),strengthened:s.strengthened,mistakes:s.mistakes};
-  markFailure(u,'word'); s.mistakes++;
+  markFailure(u,'word'); recordWrong(u,'word',''); s.mistakes++;
   s.response={ok:false,answer:'',pre,explicitDontKnow:true}; save(); render();
 }
 function sentenceTask(u){
@@ -1048,16 +1113,16 @@ function checkSentence(){
   const u=getUnit(currentTask().unitId), s=state.session;
   const ok=sentenceMatches(input,u.en);
   if(ok){
-    markSuccess(u,'production'); s.strengthened++;
+    markSuccess(u,'production'); recordRight(u,'sentence'); s.strengthened++;
     s.response={ok:true,answer:input}; save(); render();
     return;
   }
-  markFailure(u,'sentence'); s.mistakes++;
+  markFailure(u,'sentence'); recordWrong(u,'sentence',input); s.mistakes++;
   s.response={ok:false,answer:input}; save(); render();
 }
 function dontKnowSentence(){
   const u=getUnit(currentTask().unitId), s=state.session;
-  markFailure(u,'sentence'); s.mistakes++;
+  markFailure(u,'sentence'); recordWrong(u,'sentence',''); s.mistakes++;
   s.response={ok:false,answer:'',explicitDontKnow:true}; save(); render();
 }
 
@@ -1078,7 +1143,7 @@ function recallTask(u){
 function dontKnowRecall(){
   const u=getUnit(currentTask().unitId), s=state.session;
   const mode=currentTask().reviewMode || u.reviewMode || 'word';
-  markFailure(u,mode); s.mistakes++;
+  markFailure(u,mode); recordWrong(u,mode,''); s.mistakes++;
   s.response={ok:false,answer:'',explicitDontKnow:true}; save(); render();
 }
 function checkRecall(){
@@ -1087,11 +1152,11 @@ function checkRecall(){
   const mode=currentTask().reviewMode || u.reviewMode || 'word';
   const ok = mode==='sentence' ? sentenceMatches(input,u.en) : meaningMatches(input,u);
   if(ok){
-    markSuccess(u,'recall'); s.strengthened++;
+    markSuccess(u,'recall'); recordRight(u,mode); s.strengthened++;
     s.response={ok:true,answer:input}; save(); render();
     return;
   }
-  markFailure(u,mode); s.mistakes++;
+  markFailure(u,mode); recordWrong(u,mode,input); s.mistakes++;
   s.response={ok:false,answer:input}; save(); render();
 }
 
@@ -1274,6 +1339,7 @@ function progress(){
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${listenStats.pct==null?'—':listenStats.pct+'%'}</strong><span>first-listen comprehension</span></div><p class="note" style="margin-bottom:0">${listenStats.attempted?`${listenStats.correct} de ${listenStats.attempted} frases nuevas entendidas a la primera.`:'Todavía no has hecho Listen Once.'}</p></div>
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${pronounceStats.pct==null?'—':pronounceStats.pct+'%'}</strong><span>pronounce recognizability</span></div><p class="note" style="margin-bottom:0">${pronounceStats.attempted?`${pronounceStats.correct} de ${pronounceStats.attempted} palabras nuevas reconocidas a la primera.`:'Todavía no has hecho Pronounce.'}</p></div>
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${Object.values(state.readerProgress||{}).filter(x=>x.attempts>0).length} / ${READER_TEXTS.length}</strong><span>Tiny Reader</span></div><p class="note" style="margin-bottom:0">Textos de prueba completados. Las preguntas de lectura no alteran el contador de palabras.</p></div>
+    <div class="card" style="margin:14px 0"><div class="session-title"><strong>${recurrentWrongCount()}</strong><span>Wrong Book activos</span></div><p class="note" style="margin-bottom:0">${resolvedWrongCount()} errores resueltos · ${observedWrongCount()} en observación.</p></div>
     <div class="list"><div class="list-item"><span>Reconocimiento</span><span>${state.units.reduce((a,u)=>a+u.recognition,0)}</span></div><div class="list-item"><span>Producción</span><span>${state.units.reduce((a,u)=>a+u.production,0)}</span></div><div class="list-item"><span>Recalls superados</span><span>${state.units.reduce((a,u)=>a+u.recall,0)}</span></div><div class="list-item"><span>Listen Once correctos</span><span>${state.units.reduce((a,u)=>a+(u.listenCorrect||0),0)}</span></div><div class="list-item"><span>Pronounce reconocidos</span><span>${state.units.reduce((a,u)=>a+(u.pronounceCorrect||0),0)}</span></div></div>
     <div class="card data-card"><div class="eyebrow">Datos locales</div><p class="note" style="margin:0 0 14px">El progreso vive solo en este dispositivo. Haz una copia si quieres poder recuperarlo tras borrar datos, reinstalar o cambiar de versión.</p><div class="demo-actions" style="margin-top:0"><button class="ghost" onclick="exportBackup()">Exportar copia</button><button class="ghost" onclick="document.getElementById('backupImport').click()">Importar copia</button></div><input id="backupImport" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(event)"><div id="dataStatus" class="mode-note" style="margin-top:10px">Esquema de datos v${STATE_SCHEMA_VERSION} · Noma v${APP_VERSION}</div></div>
     <details class="demo-tools"><summary>Herramientas de validación</summary><div class="demo-actions"><button class="ghost" onclick="seedForgetMe()">Añadir 3 ejemplos a Forget Me</button><button class="danger-btn" onclick="resetDemo()">Reiniciar MVP</button></div></details>
@@ -1308,6 +1374,42 @@ function forgetMe(){
     return `<details class="forget-item"><summary><span><b>${escapeHtml(u.term)}</b><small>${kind} · ${u.mistakes} fallo${u.mistakes===1?'':'s'}</small></span><em>${when}</em></summary><div class="forget-detail"><strong>${escapeHtml(u.meaning)}</strong><p>${escapeHtml(u.en)}</p><small>${escapeHtml(u.es)}</small></div></details>`;
   }).join(''):`<div class="empty-state"><b>Forget Me está vacío.</b><p>Lo que falles en Word, Sentence, Listen Once o Pronounce aparecerá aquí y volverá cuando toque.</p></div>`;
   return `${renderTop()}<h1 class="section-title">Forget Me</h1><p class="section-sub">Aquí puedes ver qué ha quedado pendiente y cuándo volverá. Listen Once y Pronounce mantienen colas separadas y no alteran tu contador de palabras.</p><div class="forget-list">${rows}</div>${renderNav('forget')}`;
+}
+
+function wrongBook(){
+  const entries=wrongEntries();
+  const recurrent=entries.filter(e=>!e.resolvedAt&&(e.failures||0)>=2).sort((a,b)=>(b.failures-a.failures)||((b.lastWrongAt||0)-(a.lastWrongAt||0)));
+  const observed=entries.filter(e=>!e.resolvedAt&&(e.failures||0)===1).sort((a,b)=>(b.lastWrongAt||0)-(a.lastWrongAt||0));
+  const resolved=entries.filter(e=>!!e.resolvedAt).sort((a,b)=>(b.resolvedAt||0)-(a.resolvedAt||0));
+
+  function item(e,status){
+    const u=getUnit(e.unitId);
+    const isSentence=e.mode==='sentence';
+    const title=isSentence?u.es:u.term;
+    const expected=isSentence?u.en:u.meaning;
+    const badge=status==='recurrent'
+      ? `<span class="wrong-badge recurrent">${e.failures} fallos</span>`
+      : status==='resolved'
+        ? '<span class="wrong-badge resolved">Resuelto</span>'
+        : '<span class="wrong-badge">En observación</span>';
+    const last=e.lastAnswer
+      ? `<div class="wrong-answer">Última respuesta: <b>${escapeHtml(e.lastAnswer)}</b></div>`
+      : '<div class="wrong-answer">La última vez marcaste que no la sabías.</div>';
+    const progress=status==='resolved'
+      ? `Resuelto tras ${e.failures} fallo${e.failures===1?'':'s'}.`
+      : `${e.successesAfterFailure||0}/2 aciertos desde el último fallo para resolverlo.`;
+    return `<article class="wrong-card ${status}"><div class="wrong-top"><div><div class="wrong-title">${escapeHtml(title)}</div><div class="wrong-progress">${isSentence?'Sentence':'Word'} · ${progress}</div></div>${badge}</div>${last}<div class="wrong-answer">Respuesta esperada: <b>${escapeHtml(expected)}</b></div></article>`;
+  }
+
+  const recurringHtml=recurrent.length?recurrent.map(e=>item(e,'recurrent')).join(''):'<div class="wrong-empty"><b>Ningún error recurrente activo.</b><br>Un error entra aquí cuando aparece por segunda vez.</div>';
+  const observedHtml=observed.length?observed.map(e=>item(e,'observed')).join(''):'<div class="wrong-empty">No hay errores en observación.</div>';
+  const resolvedHtml=resolved.length?resolved.map(e=>item(e,'resolved')).join(''):'<div class="wrong-empty">Todavía no hay errores resueltos.</div>';
+
+  return `${renderTop()}<h1 class="section-title">Wrong Book</h1><p class="section-sub">Solo Word y Sentence. Un segundo fallo convierte el error en recurrente; dos aciertos posteriores lo pasan a resuelto.</p>
+    <section class="wrong-section"><div class="wrong-section-head"><h2>Recurrentes</h2><span>${recurrent.length}</span></div>${recurringHtml}</section>
+    <section class="wrong-section"><div class="wrong-section-head"><h2>En observación</h2><span>${observed.length}</span></div>${observedHtml}</section>
+    <section class="wrong-section"><div class="wrong-section-head"><h2>Resueltos</h2><span>${resolved.length}</span></div>${resolvedHtml}</section>
+    ${renderNav('home')}`;
 }
 
 function pack(){
@@ -1484,7 +1586,7 @@ function resetDemo(){ if(confirm('¿Reiniciar todo el progreso del MVP?')){state
 
 function render(){
   const app=document.getElementById('app');
-  const screens={home,exercise,done,forget:forgetMe,progress,pack,readerLibrary,reader:readerScreen};
+  const screens={home,exercise,done,forget:forgetMe,progress,pack,wrongBook,readerLibrary,reader:readerScreen};
   app.classList.toggle('exercise-shell',state.screen==='exercise');
   app.innerHTML=(screens[state.screen]||home)();
   if(state.screen!=='exercise') window.scrollTo(0,0);
