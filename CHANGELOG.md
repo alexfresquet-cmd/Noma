@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.16
+- Merged Wrong Book into Forget Me.
+- Removed the separate Wrong Book card and screen.
+- Forget Me now has three sections: Por repasar, Recurrentes and Resueltos.
+- Recurrent Word/Sentence errors remain highlighted until two later successful recalls.
+- Recurrent items continue to receive delayed verification until resolved.
+- Listen Once and Pronounce remain review-only and do not create recurring language-pattern entries.
+- Preserves the v4 data schema and existing v0.15 diagnostic data.
+
 ## v0.15
 - Added Wrong Book.
 - Tracks Word and Sentence failures separately.
