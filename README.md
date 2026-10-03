@@ -1,4 +1,4 @@
-# Noma v0.18
+# Noma v0.19
 
 Noma is a local-first language-learning prototype built around finite progress: learn, recall, consolidate, and remove what no longer needs attention.
 
@@ -20,11 +20,14 @@ Forget Me now combines review scheduling and recurring-error tracking in one pla
 
 A Word/Sentence error becomes recurrent after its second failure. After one successful recovery it remains visible as **Mejorando · 1/2**; a second later success resolves it.
 
-## Pending counter
-`left` now means pack units still waiting for first-pass evidence. A first correct answer in **Word or Sentence** removes that unit from `left`. If it later becomes unstable after a failure, it returns to `left` until recovered. Consolidation remains a stricter, separate state. Listen Once and Pronounce stay in the review queue but do not create recurring grammar/vocabulary patterns.
+## Progress counters
+Progress is now explicit in three views:
 
-## Data
-The prototype stores progress in browser localStorage. The state schema is versioned and backups can be exported/imported. The planned Android version will move persistence to local SQLite.
+- **Word**: units with successful Word evidence.
+- **Sentence**: units with successful Sentence evidence.
+- **Word + Sentence**: units completed in both modes.
+
+The Home hero shows the combined total. The practice selector shows the selected mode's own completed and pending counts. Session results show the Word, Sentence and combined deltas separately instead of a single ambiguous `left` change.
 
 ## Web build
 The current prototype is published through GitHub Pages over HTTPS so Pronounce can use direct browser speech recognition without a keyboard-dictation fallback.
