@@ -869,7 +869,8 @@ const Storage = {
     }catch(error){
       this.mode='local-fallback';
       this.lastError=error?.message||String(error);
-      return local?.state||null;
+      if(local?.state) return local.state;
+      throw new Error('No se pudo abrir SQLite y no hay una copia local de recuperación. Noma no iniciará un progreso vacío para proteger tus datos.');
     }
   },
   save(value){
@@ -1968,17 +1969,48 @@ function render(){
   if(state.screen!=='exercise') window.scrollTo(0,0);
 }
 window.go=go; window.buildSession=buildSession; window.buildListenSession=buildListenSession; window.buildPronounceSession=buildPronounceSession; window.checkWord=checkWord; window.dontKnowWord=dontKnowWord; window.checkSentence=checkSentence; window.dontKnowSentence=dontKnowSentence; window.checkRecall=checkRecall; window.nextTask=nextTask; window.seedForgetMe=seedForgetMe; window.resetDemo=resetDemo; window.playListen=playListen; window.checkListen=checkListen; window.dontKnowListen=dontKnowListen; window.exportBackup=exportBackup; window.importBackup=importBackup; window.startReader=startReader; window.exitReader=exitReader; window.beginReaderQuestions=beginReaderQuestions; window.answerReaderOption=answerReaderOption; window.nextReaderQuestion=nextReaderQuestion; window.playPronounce=playPronounce; window.startPronounceRecognition=startPronounceRecognition; window.retryPronounce=retryPronounce;
+function renderStorageFailure(error){
+  const app=document.getElementById('app');
+  app.innerHTML=`<div class="topbar"><div class="brand">Noma</div><div class="lang">Beta 1</div></div>
+    <section class="card">
+      <div class="eyebrow">Protección de datos</div>
+      <h1 class="section-title" style="font-size:30px">No voy a iniciar un progreso vacío.</h1>
+      <p class="note">No se ha podido abrir SQLite y tampoco encuentro una copia local de recuperación. Tus datos existentes no se han sobrescrito.</p>
+      <p class="note">${escapeHtml(error?.message||'Error de almacenamiento')}</p>
+      <div class="demo-actions">
+        <button class="primary" onclick="location.reload()">Reintentar</button>
+        <button class="ghost" onclick="document.getElementById('recoveryImport').click()">Restaurar copia JSON</button>
+      </div>
+      <input id="recoveryImport" type="file" accept="application/json,.json" style="display:none" onchange="recoverStorageFromBackup(event)">
+    </section>`;
+}
+async function recoverStorageFromBackup(event){
+  const input=event?.target;
+  const file=input?.files?.[0];
+  if(!file) return;
+  try{
+    const payload=JSON.parse(await file.text());
+    state=validateBackup(payload);
+    state.screen='home'; state.session=null; state.readerSession=null;
+    Storage.save(state);
+    render();
+  }catch(error){
+    alert('No se pudo restaurar la copia. '+(error?.message||''));
+  }finally{ if(input) input.value=''; }
+}
 async function bootstrap(){
   try{
     state=await load();
   }catch(error){
     console.error(error);
-    state=initialState();
+    renderStorageFailure(error);
+    return;
   }
   // A fresh launch always opens on Hoy. Learning history remains untouched.
   state.screen='home'; state.session=null; state.readerSession=null; save();
   render();
 }
+window.recoverStorageFromBackup=recoverStorageFromBackup;
 bootstrap();
 
 </script>
