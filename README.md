@@ -42,6 +42,11 @@ The audit and all content changes are documented in:
 
 ## Beta status
 
-**0.20.0-beta.1** is the first closed Beta candidate.
+**0.20.0-beta.2** is the current closed Beta build.
 
 The counter model from v0.19 remains intentionally unchanged unless real usage gives us evidence to revise it. Speak 15, Travel Pack, placement testing and additional packs remain out of scope for this Beta.
+
+
+## Session length
+
+Word, Sentence and Combined practice now plan **up to 10 exercises per session**. A visible **Terminar** action lets the learner stop at any point; completed answers are kept and unfinished items are not penalised. Listen Once and Pronounce remain at 4 items for now.
