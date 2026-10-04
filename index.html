@@ -7,7 +7,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>Noma — Beta 1</title>
+  <title>Noma — Beta 1.1</title>
   <style>
 :root {
   --bg: #f5f3ee;
@@ -72,6 +72,8 @@ button { cursor: pointer; }
 .step-track { flex: 1; height: 4px; background: var(--soft); border-radius: 999px; overflow: hidden; }
 .step-track > div { height: 100%; background: var(--text); }
 .step-count { color: var(--muted); font-size: 13px; min-width: 38px; text-align: right; }
+.finish-session { border:0; background:transparent; color:var(--muted); font-size:13px; font-weight:700; padding:8px 0 8px 6px; white-space:nowrap; }
+.finish-session:active { color:var(--text); }
 .exercise-main { display: block; padding-top: 18px; padding-bottom: 28px; }
 .exercise-content { width: 100%; }
 .answer-zone { margin-top: 4px; }
@@ -294,7 +296,7 @@ button { cursor: pointer; }
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.20.0-beta.1';
+const APP_VERSION = '0.20.0-beta.2';
 const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
@@ -1135,6 +1137,8 @@ function dueForMode(u, mode){
   if(mode==='mix') return true;
   return reviewMode===mode;
 }
+const PRACTICE_SESSION_SIZE = 10;
+
 function buildSession(){
   const mode=state.practiceMode||'mix';
   state.sessionNumber=(state.sessionNumber||0)+1;
@@ -1163,19 +1167,20 @@ function buildSession(){
     }
   };
 
-  if(mode==='word') addWords(Math.max(0,4-tasks.length));
-  else if(mode==='sentence') addSentences(Math.max(0,4-tasks.length));
+  if(mode==='word') addWords(Math.max(0,PRACTICE_SESSION_SIZE-tasks.length));
+  else if(mode==='sentence') addSentences(Math.max(0,PRACTICE_SESSION_SIZE-tasks.length));
   else {
-    addWords(1);
-    addSentences(1);
-    // If there were no reviews, keep the mixed session short but useful.
-    if(tasks.length<4){
-      if(tasks.filter(t=>t.type==='word').length<2) addWords(1);
-      if(tasks.length<4 && tasks.filter(t=>t.type==='sentence').length<2) addSentences(1);
-    }
+    const remaining=Math.max(0,PRACTICE_SESSION_SIZE-tasks.length);
+    const wordTarget=Math.ceil(remaining/2);
+    const sentenceTarget=Math.floor(remaining/2);
+    addWords(wordTarget);
+    addSentences(sentenceTarget);
+    // If one side has run out of unseen items, fill the remaining slots from the other.
+    if(tasks.length<PRACTICE_SESSION_SIZE) addWords(PRACTICE_SESSION_SIZE-tasks.length);
+    if(tasks.length<PRACTICE_SESSION_SIZE) addSentences(PRACTICE_SESSION_SIZE-tasks.length);
   }
 
-  const mixed=shuffleTasks(tasks).slice(0,4);
+  const mixed=shuffleTasks(tasks).slice(0,PRACTICE_SESSION_SIZE);
   if(!mixed.length){
     state.lastSessionSummary={before:leftCount(),after:leftCount(),strengthened:0,mistakes:0,duration:0};
     state.screen='done'; save(); render(); return;
@@ -1241,6 +1246,38 @@ function buildPronounceSession(){
 function currentTask(){ return state.session?.tasks[state.session.index]; }
 let activeRecognition=null;
 
+function completeSession(early=false){
+  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  if(activeRecognition){ try{activeRecognition.abort();}catch(e){} activeRecognition=null; }
+  const s=state.session;
+  if(!s) return;
+  const answeredCurrent=!!s.response;
+  const completed=Math.min(s.tasks.length,s.index+(answeredCurrent?1:0));
+  const summary={
+    before:s.before,
+    after:leftCount(),
+    beforeProgress:s.beforeProgress||progressSnapshot(),
+    afterProgress:progressSnapshot(),
+    mode:s.mode||'mix',
+    strengthened:s.strengthened,
+    mistakes:s.mistakes,
+    duration:Math.max(1,Math.round((Date.now()-s.startedAt)/60000)),
+    completed,
+    planned:s.tasks.length,
+    endedEarly:!!early
+  };
+  state.lastSessionSummary=summary;
+  state.session=null;
+  state.screen='done';
+  save();
+  render();
+}
+function finishSessionEarly(){
+  const s=state.session;
+  if(!s || !['word','sentence','mix'].includes(s.mode)) return;
+  if(!confirm('¿Terminar la sesión ahora? Todo lo que ya has hecho quedará guardado.')) return;
+  completeSession(true);
+}
 function nextTask(){
   if('speechSynthesis' in window) window.speechSynthesis.cancel();
   if(activeRecognition){ try{activeRecognition.abort();}catch(e){} activeRecognition=null; }
@@ -1253,8 +1290,7 @@ function nextTask(){
   s.pronounceFailureRecorded=false;
   s.index++;
   if(s.index>=s.tasks.length){
-    const summary={ before:s.before, after:leftCount(), beforeProgress:s.beforeProgress||progressSnapshot(), afterProgress:progressSnapshot(), mode:s.mode||'mix', strengthened:s.strengthened, mistakes:s.mistakes, duration:Math.max(1,Math.round((Date.now()-s.startedAt)/60000)) };
-    state.lastSessionSummary=summary; state.session=null; state.screen='done'; save(); render();
+    completeSession(false);
   } else { save(); render(); requestAnimationFrame(()=>window.scrollTo(0,0)); }
 }
 function go(screen){ if('speechSynthesis' in window) window.speechSynthesis.cancel(); if(activeRecognition){try{activeRecognition.abort();}catch(e){} activeRecognition=null;} state.screen=screen; save(); render(); }
@@ -1276,15 +1312,15 @@ function home(){
   const pct=Math.round(learned/PACK_SIZE*100);
   const modePct=Math.round(modeDone/PACK_SIZE*100);
   const modeCopy={
-    word:['Word','Inglés → castellano. Cuatro pruebas cortas.'],
-    sentence:['Sentence','Castellano → inglés. Cuatro frases.'],
-    mix:['Combinado','Word y Sentence mezclados, sin repetir la misma unidad.']
+    word:['Word','Inglés → castellano. Hasta 10 ejercicios.'],
+    sentence:['Sentence','Castellano → inglés. Hasta 10 ejercicios.'],
+    mix:['Combinado','Hasta 10 ejercicios mezclados, sin repetir la misma unidad.']
   }[mode];
   const relevantDue=mode==='word'?dueWord:mode==='sentence'?dueSentence:(dueWord+dueSentence);
   return `${renderTop()}
     <section class="hero"><div class="eyebrow">Word + Sentence</div><div class="big-number">${learned}<span>/ ${PACK_SIZE} consolidadas</span></div><div class="substat">${wordDone}/${PACK_SIZE} Word · ${sentenceDone}/${PACK_SIZE} Sentence · ${forget} en Forget Me</div><div class="progress-line"><div style="width:${pct}%"></div></div></section>
     <section class="card session-card">
-      <div class="session-title"><strong>Practicar</strong><span>${relevantDue?'con repasos':'4 ejercicios'}</span></div>
+      <div class="session-title"><strong>Practicar</strong><span>${relevantDue?'hasta 10 · con repasos':'hasta 10 ejercicios'}</span></div>
       <div class="mode-picker" role="group" aria-label="Modo de práctica">
         <button class="mode-btn ${mode==='word'?'active':''}" onclick="setPracticeMode('word')">Word</button>
         <button class="mode-btn ${mode==='sentence'?'active':''}" onclick="setPracticeMode('sentence')">Sentence</button>
@@ -1331,7 +1367,8 @@ function exercise(){
   if(task.type==='recall') body=recallTask(u);
   if(task.type==='listen') body=listenTask(u);
   if(task.type==='pronounce') body=pronounceTask(u);
-  return `<div class="exercise-wrap"><div class="exercise-head"><button class="back" onclick="go('home')">←</button><div class="step-track"><div style="width:${progress}%"></div></div><div class="step-count">${idx}/${n}</div></div><div class="exercise-main">${body}</div></div>`;
+  const canFinish=['word','sentence','mix'].includes(s.mode);
+  return `<div class="exercise-wrap"><div class="exercise-head"><button class="back" onclick="go('home')">←</button><div class="step-track"><div style="width:${progress}%"></div></div><div class="step-count">${idx}/${n}</div>${canFinish?'<button class="finish-session" onclick="finishSessionEarly()">Terminar</button>':''}</div><div class="exercise-main">${body}</div></div>`;
 }
 
 function resultActions(ok){
@@ -1684,7 +1721,10 @@ function done(){
   const note=practice
     ? (changed?'El avance se muestra por separado para que puedas ver qué parte ha mejorado.':'Has reforzado contenido ya abierto, pero no has añadido una unidad nueva a Word o Sentence.')
     : 'Esta sesión refuerza una habilidad separada y no cambia los contadores de Word o Sentence.';
-  return renderTop()+'<section class="done"><h1>Done.</h1><p>'+x.strengthened+' elementos reforzados.<br>'+(x.mistakes?x.mistakes+' necesitan más tiempo.':'Nada pendiente de esta sesión.')+'</p>'+progressBlock+'<p>'+note+'</p><button class="primary" onclick="go(\'home\')">Volver a inicio</button></section>';
+  const sessionLine=practice && Number.isFinite(x.completed) && Number.isFinite(x.planned)
+    ? '<p><b>'+x.completed+' de '+x.planned+'</b> ejercicios hechos'+(x.endedEarly?' · sesión terminada antes':'')+'.</p>'
+    : '';
+  return renderTop()+'<section class="done"><h1>Done.</h1><p>'+x.strengthened+' elementos reforzados.<br>'+(x.mistakes?x.mistakes+' necesitan más tiempo.':'Nada pendiente de esta sesión.')+'</p>'+sessionLine+progressBlock+'<p>'+note+'</p><button class="primary" onclick="go(\'home\')">Volver a inicio</button></section>';
 }
 
 function progress(){
@@ -1968,7 +2008,7 @@ function render(){
   app.innerHTML=(screens[state.screen]||home)();
   if(state.screen!=='exercise') window.scrollTo(0,0);
 }
-window.go=go; window.buildSession=buildSession; window.buildListenSession=buildListenSession; window.buildPronounceSession=buildPronounceSession; window.checkWord=checkWord; window.dontKnowWord=dontKnowWord; window.checkSentence=checkSentence; window.dontKnowSentence=dontKnowSentence; window.checkRecall=checkRecall; window.nextTask=nextTask; window.seedForgetMe=seedForgetMe; window.resetDemo=resetDemo; window.playListen=playListen; window.checkListen=checkListen; window.dontKnowListen=dontKnowListen; window.exportBackup=exportBackup; window.importBackup=importBackup; window.startReader=startReader; window.exitReader=exitReader; window.beginReaderQuestions=beginReaderQuestions; window.answerReaderOption=answerReaderOption; window.nextReaderQuestion=nextReaderQuestion; window.playPronounce=playPronounce; window.startPronounceRecognition=startPronounceRecognition; window.retryPronounce=retryPronounce;
+window.go=go; window.buildSession=buildSession; window.finishSessionEarly=finishSessionEarly; window.buildListenSession=buildListenSession; window.buildPronounceSession=buildPronounceSession; window.checkWord=checkWord; window.dontKnowWord=dontKnowWord; window.checkSentence=checkSentence; window.dontKnowSentence=dontKnowSentence; window.checkRecall=checkRecall; window.nextTask=nextTask; window.seedForgetMe=seedForgetMe; window.resetDemo=resetDemo; window.playListen=playListen; window.checkListen=checkListen; window.dontKnowListen=dontKnowListen; window.exportBackup=exportBackup; window.importBackup=importBackup; window.startReader=startReader; window.exitReader=exitReader; window.beginReaderQuestions=beginReaderQuestions; window.answerReaderOption=answerReaderOption; window.nextReaderQuestion=nextReaderQuestion; window.playPronounce=playPronounce; window.startPronounceRecognition=startPronounceRecognition; window.retryPronounce=retryPronounce;
 function renderStorageFailure(error){
   const app=document.getElementById('app');
   app.innerHTML=`<div class="topbar"><div class="brand">Noma</div><div class="lang">Beta 1</div></div>
