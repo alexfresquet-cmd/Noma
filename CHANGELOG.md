@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.0-beta.2
+- Word, Sentence and Combined sessions now default to **10 exercises** instead of 4.
+- Added a visible **Terminar** action during those practice sessions.
+- Ending early preserves all completed progress and does not penalise the current unanswered item.
+- Session summary records how many exercises were completed out of the planned total.
+- Listen Once and Pronounce remain at 4 items.
+- No data-schema change; existing Beta 1 SQLite data is fully compatible.
+
 ## 0.20.0-beta.1 — Beta 1
 - Audited and froze the 100-unit Everyday English pack for Beta use.
 - Preserved stable IDs 1–100 so existing learning history can migrate without replaying learned material.
