@@ -8,9 +8,9 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Noma — Beta 1</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=0.20.1-beta.3" crossorigin="use-credentials" />
-  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
-  <link rel="apple-touch-icon" href="./icon-192.png" />
+  <link rel="manifest" href="./manifest.webmanifest?v=0.20.3-beta.1" crossorigin="use-credentials" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=0.20.3-beta.1" />
+  <link rel="apple-touch-icon" href="./icon-192.png?v=0.20.3-beta.1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <style>
 :root {
@@ -39,7 +39,8 @@ button { cursor: pointer; }
 }
 
 .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 34px; }
-.brand { font-size: 24px; font-weight: 750; letter-spacing: -0.04em; }
+.brand { font-size: 24px; font-weight: 750; letter-spacing: -0.04em; display:flex; align-items:center; gap:8px; white-space:nowrap; }
+.brand img { width:29px; height:29px; display:block; flex:none; }
 .lang { font-size: 13px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; background: rgba(255,255,255,.35); }
 
 .hero { margin: 18px 0 34px; }
@@ -300,7 +301,7 @@ button { cursor: pointer; }
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.20.2-beta.1';
+const APP_VERSION = '0.20.3-beta.1';
 const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
@@ -1289,9 +1290,11 @@ function nextTask(){
   s.response=null;
   s.listenPlayed=false;
   s.listenLoading=false;
+  s.listenVoiceError=false;
   s.listenError=null;
   s.pronounceListening=false;
   s.pronounceError=null;
+  s.pronounceVoiceError=false;
   s.pronounceFailureRecorded=false;
   s.index++;
   if(s.index>=s.tasks.length){
@@ -1300,7 +1303,7 @@ function nextTask(){
 }
 function go(screen){ cancelEnglishSpeech(); if(activeRecognition){try{activeRecognition.abort();}catch(e){} activeRecognition=null;} state.screen=screen; save(); render(); }
 
-function renderTop(){ return `<div class="topbar"><div class="brand">Noma</div><div class="lang">English · v${APP_VERSION}</div></div>`; }
+function renderTop(){ return `<div class="topbar"><div class="brand"><img src="./app-mark.svg" alt="" aria-hidden="true">Noma</div><div class="lang">English · v${APP_VERSION}</div></div>`; }
 function renderNav(active){ return `<div class="bottom-dock"><nav class="bottom-nav"><button class="nav-btn ${active==='home'?'active':''}" onclick="go('home')">Hoy</button><button class="nav-btn ${active==='forget'?'active':''}" onclick="go('forget')">Forget Me</button><button class="nav-btn ${active==='progress'?'active':''}" onclick="go('progress')">Progreso</button><button class="nav-btn ${active==='pack'?'active':''}" onclick="go('pack')">Pack</button></nav></div>`; }
 
 function home(){
@@ -1550,6 +1553,7 @@ function checkRecall(){
 let activeSpeechStop=null;
 let activeMediaStop=null;
 let activeUtterance=null;
+let useSystemDefaultVoice=false;
 function cancelEnglishSpeech(){
   if(activeMediaStop){const stop=activeMediaStop;activeMediaStop=null;stop();}
   if(activeSpeechStop){const stop=activeSpeechStop;activeSpeechStop=null;stop();}
@@ -1558,45 +1562,69 @@ function cancelEnglishSpeech(){
     try{if(window.speechSynthesis.speaking||window.speechSynthesis.pending)window.speechSynthesis.cancel();}catch(e){}
   }
 }
+
 function chooseEnglishVoice(){
   if(!('speechSynthesis' in window))return null;
+  // Restore Noma's original voice preference, from the version with natural audio.
   const voices=window.speechSynthesis.getVoices()||[];
-  const english=voices.filter(v=>(v.lang||'').toLowerCase().startsWith('en'));
-  return english.find(v=>v.localService&&(v.lang||'').toLowerCase().startsWith('en-gb'))
-    || english.find(v=>v.localService)
-    || english.find(v=>(v.lang||'').toLowerCase().startsWith('en-gb'))
-    || english[0] || null;
+  return voices.find(v=>(v.lang||'').toLowerCase().startsWith('en-gb'))
+    || voices.find(v=>(v.lang||'').toLowerCase().startsWith('en'))
+    || null;
 }
+if('speechSynthesis' in window){
+  try{window.speechSynthesis.getVoices();}catch(e){}
+  window.speechSynthesis.addEventListener?.('voiceschanged',()=>{
+    try{window.speechSynthesis.getVoices();}catch(e){}
+  });
+}
+// Invoke speech directly in the tap handler, without an unconditional cancel()
+// before speak. Cancelling an idle Chrome Android synth can interrupt startup.
 function speakEnglish(text,rate,{onStart=()=>{},onEnd=()=>{},onError=()=>{}}={}){
   if(!('speechSynthesis' in window)||typeof SpeechSynthesisUtterance==='undefined'){
-    onError('no-web-speech');return;
+    onError('sin-sintetizador');return;
   }
-  cancelEnglishSpeech();
-  const synth=window.speechSynthesis,utter=new SpeechSynthesisUtterance(text);
-  const voice=chooseEnglishVoice();
-  if(voice){utter.voice=voice;utter.lang=voice.lang;}else{utter.lang='en-GB';}
+  const synth=window.speechSynthesis;
+  // Cancel only an actual preceding playback, not an idle synthesizer.
+  if(activeMediaStop||activeSpeechStop||synth.speaking||synth.pending)cancelEnglishSpeech();
+  const utter=new SpeechSynthesisUtterance(text);
+  const voice=useSystemDefaultVoice?null:chooseEnglishVoice();
+  utter.lang=voice?.lang||'en-GB';
+  if(voice)utter.voice=voice;
   utter.rate=rate;utter.pitch=1;utter.volume=1;
   let active=true,started=false,watchdog=null;
   const clear=()=>{if(watchdog!==null){clearTimeout(watchdog);watchdog=null;}};
   const stop=()=>{active=false;clear();if(activeUtterance===utter)activeUtterance=null;};
-  const finish=()=>{if(!active)return false;stop();if(activeSpeechStop===stop)activeSpeechStop=null;return true;};
-  const fail=code=>{if(finish())onError(code||'unknown-tts');};
-  utter.onstart=()=>{
-    if(!active)return;
-    started=true;clear();onStart();
-    watchdog=setTimeout(()=>{try{synth.cancel();}catch(e){}fail('tts-ended-timeout');},
-      Math.max(12000,text.length*250));
+  const finish=()=>{
+    if(!active)return false;
+    stop();
+    if(activeSpeechStop===stop)activeSpeechStop=null;
+    return true;
   };
-  utter.onend=()=>{if(finish())onEnd();};
-  utter.onerror=event=>fail(event?.error||'tts-error');
-  activeSpeechStop=stop;activeUtterance=utter;
+  const fail=code=>{if(finish())onError(code||'error-desconocido');};
+  utter.onstart=()=>{
+    if(!active||started)return;
+    started=true;clear();onStart();
+    watchdog=setTimeout(()=>{try{synth.cancel();}catch(e){}fail('finalización-agotada');},
+      Math.max(16000,text.length*400));
+  };
+  utter.onend=()=>{
+    // Some implementations report end without a start event.
+    // Do not count an unheard exercise as a completed playback.
+    if(finish()){if(started)onEnd();else onError('sin-inicio');}
+  };
+  utter.onerror=event=>fail(event?.error||'error-voz');
+  activeSpeechStop=stop;
+  activeUtterance=utter;
   try{
     if(synth.paused)synth.resume();
     synth.speak(utter);
     watchdog=setTimeout(()=>{
-      if(active&&!started){try{synth.cancel();}catch(e){}fail('tts-start-timeout');}
-    },6500);
-  }catch(e){fail(e?.message||'tts-exception');}
+      if(active&&!started){
+        try{synth.cancel();}catch(e){}
+        fail('voz-no-iniciada');
+      }
+    },8500);
+  }catch(e){fail(e?.name||'error-al-iniciar');}
 }
 function audioClip(kind,id){return './audio/'+kind+'/'+encodeURIComponent(String(id))+'.mp3';}
 // Static MP3 playback is independent of the Web Speech engine on Android.
@@ -1647,45 +1675,45 @@ function setListenControls(enabled,message,isError=false){
   if(checkBtn)checkBtn.disabled=!enabled;
   if(status){status.textContent=message||'';status.classList.toggle('listen-error',!!isError);}
 }
-function playListen(){
+
+function startListenAudio(basic=false){
   const s=state.session,task=currentTask();
   if(!s||!task||task.type!=='listen'||s.listenPlayed||s.listenLoading)return;
   const u=getUnit(task.unitId),isCurrent=()=>state.session===s&&currentTask()===task;
-  s.listenError=null;s.listenLoading=true;
+  s.listenLoading=true;s.listenError=null;s.listenVoiceError=false;
   const play=document.getElementById('listenPlay');
   if(play)play.disabled=true;
-  setListenControls(false,'Preparando audio local…');
-  const onStart=()=>{
+  setListenControls(false,basic?'Preparando grabación básica…':'Preparando voz del móvil…');
+  const started=()=>{
     if(!isCurrent())return;
-    s.listenLoading=false;s.listenPlayed=true;s.listenError=null;
-    save();setListenControls(false,'Escuchando…');
+    s.listenPlayed=true;s.listenLoading=false;s.listenVoiceError=false;s.listenError=null;
+    save();
+    setListenControls(false,'Escuchando…');
   };
-  const onEnd=()=>{if(isCurrent())setListenControls(true,'Escuchado · escribe lo que has oído');};
-  playBundledAudio(audioClip('listen',u.id),{
-    onStart,onEnd,
-    onError:reason=>{
-      if(!isCurrent())return;
-      s.listenPlayed=false;
-      setListenControls(false,'Probando voz alternativa…');
-      speakEnglish(u.en,.92,{
-        onStart,onEnd,
-        onError:code=>{
-          if(!isCurrent())return;
-          s.listenLoading=false;s.listenPlayed=false;
-          s.listenError='No se ha podido reproducir el MP3 ('+reason+') ni la voz Android ('+code+'). Comprueba el volumen multimedia y la conexión.';
-          save();render();
-        }
-      });
-    }
-  });
+  const ended=()=>{if(isCurrent())setListenControls(true,'Escuchado · escribe lo que has oído');};
+  const failed=code=>{
+    if(!isCurrent())return;
+    s.listenPlayed=false;s.listenLoading=false;
+    s.listenVoiceError=!basic;
+    s.listenError=basic
+      ? 'No se ha podido reproducir la grabación ('+code+'). Comprueba el volumen y la conexión.'
+      : 'La voz del móvil no ha respondido ('+code+'). Pulsa ▶ para reintentar o utiliza Audio básico.';
+    // Retry the system default next time, without explicitly setting a voice.
+    if(!basic)useSystemDefaultVoice=!useSystemDefaultVoice;
+    save();render();
+  };
+  if(basic)playBundledAudio(audioClip('listen',u.id),{onStart:started,onEnd:ended,onError:failed});
+  else speakEnglish(u.en,.92,{onStart:started,onEnd:ended,onError:failed});
 }
+function playListen(){startListenAudio(false);}
+function playBasicListen(){startListenAudio(true);}
 function listenTask(u){
   const s=state.session, r=s.response, played=!!s.listenPlayed;
   if(!r){
     const status=s.listenError || (played?'Escuchado · escribe lo que has oído':'Una reproducción');
     return `<div class="exercise-content"><div class="exercise-type">${currentTask().reviewKind==='forget-listen'?'Listen Once · Forget Me':'Listen Once'}</div>
       <div class="hint">Escucha una vez. La frase no aparece hasta corregir.</div>
-      <div class="listen-stage"><button id="listenPlay" class="listen-play" onclick="playListen()" ${played?'disabled':''} aria-label="Reproducir una vez">▶</button><div id="listenState" class="listen-state ${s.listenError?'listen-error':''}">${escapeHtml(status)}</div></div>
+      <div class="listen-stage"><button id="listenPlay" class="listen-play" onclick="playListen()" ${played?'disabled':''} aria-label="Reproducir una vez">▶</button><div id="listenState" class="listen-state ${s.listenError?'listen-error':''}">${escapeHtml(status)}</div>${s.listenVoiceError&&!played?'<button class="ghost" style="font-size:13px;min-height:40px" onclick="playBasicListen()">Escuchar audio básico</button>':''}</div>
       <div class="answer-zone"><input id="listenInput" class="answer-input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${played?'Escribe lo que has oído…':'Primero escucha el audio'}" ${played?'':'disabled'} onkeydown="if(event.key==='Enter'){event.preventDefault();checkListen()}">
       <div class="word-actions"><button id="listenDontKnow" class="secondary" onclick="dontKnowListen()" ${played?'':'disabled'}>No lo entendí</button><button id="listenCheck" class="primary" onclick="checkListen()" ${played?'':'disabled'}>Comprobar</button></div></div></div>`;
   }
@@ -1712,24 +1740,24 @@ function dontKnowListen(){
 }
 
 
-function playPronounce(){
+
+function playPronounce(basic=false){
   const s=state.session,task=currentTask();
   if(!s||!task||task.type!=='pronounce')return;
   const u=getUnit(task.unitId),isCurrent=()=>state.session===s&&currentTask()===task;
-  s.pronounceError=null;
-  playBundledAudio(audioClip('pronounce',u.id),{
-    onError:reason=>{
-      if(!isCurrent())return;
-      speakEnglish(u.term,.82,{
-        onError:code=>{
-          if(!isCurrent())return;
-          s.pronounceError='Error de MP3 ('+reason+') y voz Android ('+code+').';
-          save();render();
-        }
-      });
-    }
-  });
+  s.pronounceError=null;s.pronounceVoiceError=false;
+  const failure=code=>{
+    if(!isCurrent())return;
+    s.pronounceVoiceError=!basic;
+    s.pronounceError=basic?'No se ha podido reproducir el audio básico ('+code+').'
+      :'No se ha iniciado la voz del móvil ('+code+'). Puedes usar el audio básico.';
+    if(!basic)useSystemDefaultVoice=!useSystemDefaultVoice;
+    save();render();
+  };
+  if(basic)playBundledAudio(audioClip('pronounce',u.id),{onError:failure});
+  else speakEnglish(u.term,.82,{onError:failure});
 }
+function playBasicPronounce(){playPronounce(true);}
 function pronounceMatches(text,target){
   const a=normalizeEnglish(text), t=normalizeEnglish(target);
   if(a===t) return true;
@@ -1806,7 +1834,7 @@ function pronounceTask(u){
   if(!r){
     const env=speechEnvironmentStatus();
     const idleText=env.ok?'Noma comprueba si el reconocimiento entiende la palabra.':env.message;
-    return `<div class="exercise-content"><div class="exercise-type">${label}</div><div class="prompt-word">${escapeHtml(u.term)}</div><div class="hint">Escúchala si quieres y después pronúnciala.</div><div class="pronounce-stage"><div class="pronounce-controls"><button class="pronounce-btn" onclick="playPronounce()">🔊 Escuchar</button><button class="pronounce-btn primary-mic" onclick="startPronounceRecognition()" ${s.pronounceListening||!env.ok?'disabled':''}>${s.pronounceListening?'Escuchando…':'● Hablar'}</button></div><div class="pronounce-status ${s.pronounceListening?'live':''} ${(s.pronounceError||!env.ok)?'error':''}">${escapeHtml(s.pronounceError||(s.pronounceListening?'Habla ahora':idleText))}</div></div></div>`;
+    return `<div class="exercise-content"><div class="exercise-type">${label}</div><div class="prompt-word">${escapeHtml(u.term)}</div><div class="hint">Escúchala si quieres y después pronúnciala.</div><div class="pronounce-stage"><div class="pronounce-controls"><button class="pronounce-btn" onclick="playPronounce()">🔊 Escuchar</button><button class="pronounce-btn primary-mic" onclick="startPronounceRecognition()" ${s.pronounceListening||!env.ok?'disabled':''}>${s.pronounceListening?'Escuchando…':'● Hablar'}</button></div><div class="pronounce-status ${s.pronounceListening?'live':''} ${(s.pronounceError||!env.ok)?'error':''}">${escapeHtml(s.pronounceError||(s.pronounceListening?'Habla ahora':idleText))}</div>${s.pronounceVoiceError?'<button class="ghost" onclick="playBasicPronounce()">Escuchar audio básico</button>':''}</div></div>`;
   }
   const heard=r.heard?escapeHtml(r.heard):'—';
   const retry=r.ok?'':`<button class="secondary" onclick="retryPronounce()">Reintentar</button>`;
@@ -2118,7 +2146,7 @@ function render(){
   app.innerHTML=(screens[state.screen]||home)();
   if(state.screen!=='exercise') window.scrollTo(0,0);
 }
-window.go=go; window.buildSession=buildSession; window.finishSessionEarly=finishSessionEarly; window.buildListenSession=buildListenSession; window.buildPronounceSession=buildPronounceSession; window.checkWord=checkWord; window.dontKnowWord=dontKnowWord; window.checkSentence=checkSentence; window.dontKnowSentence=dontKnowSentence; window.checkRecall=checkRecall; window.nextTask=nextTask; window.seedForgetMe=seedForgetMe; window.resetDemo=resetDemo; window.playListen=playListen; window.checkListen=checkListen; window.dontKnowListen=dontKnowListen; window.exportBackup=exportBackup; window.importBackup=importBackup; window.startReader=startReader; window.exitReader=exitReader; window.beginReaderQuestions=beginReaderQuestions; window.answerReaderOption=answerReaderOption; window.nextReaderQuestion=nextReaderQuestion; window.playPronounce=playPronounce; window.startPronounceRecognition=startPronounceRecognition; window.retryPronounce=retryPronounce;
+window.go=go; window.buildSession=buildSession; window.finishSessionEarly=finishSessionEarly; window.buildListenSession=buildListenSession; window.buildPronounceSession=buildPronounceSession; window.checkWord=checkWord; window.dontKnowWord=dontKnowWord; window.checkSentence=checkSentence; window.dontKnowSentence=dontKnowSentence; window.checkRecall=checkRecall; window.nextTask=nextTask; window.seedForgetMe=seedForgetMe; window.resetDemo=resetDemo; window.playListen=playListen; window.playBasicListen=playBasicListen; window.playBasicPronounce=playBasicPronounce; window.checkListen=checkListen; window.dontKnowListen=dontKnowListen; window.exportBackup=exportBackup; window.importBackup=importBackup; window.startReader=startReader; window.exitReader=exitReader; window.beginReaderQuestions=beginReaderQuestions; window.answerReaderOption=answerReaderOption; window.nextReaderQuestion=nextReaderQuestion; window.playPronounce=playPronounce; window.startPronounceRecognition=startPronounceRecognition; window.retryPronounce=retryPronounce;
 function renderStorageFailure(error){
   const app=document.getElementById('app');
   app.innerHTML=`<div class="topbar"><div class="brand">Noma</div><div class="lang">Beta 1</div></div>

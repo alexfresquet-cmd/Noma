@@ -74,3 +74,11 @@ Replaced invalid/truncated PNG app icons with valid PNG files (192 and 512 px). 
 ## 0.20.2-beta.1 — offline Listen/Pronounce audio
 
 Noma uses 200 recorded synthetic MP3 clips from the 100 audited unit IDs (100 Listen sentences, 100 Pronounce terms). These play via the HTML audio API independently of Android speech synthesis. Web Speech remains a fallback with detailed error codes. Audio files cache on use and are requested in the background for offline support. MP3 files are generated using espeak-ng; the naturalness of the voice is a separate future quality decision.
+
+## 0.20.3-beta.1: Mobile voice restoration and app icon
+
+- The natural Android/Chrome `SpeechSynthesisUtterance` voice is again the **primary** choice for Listen and Pronounce, as in Noma 0.20.0. It is invoked directly from the tap without cancelling an idle synthesizer. On a failed attempt, the next tap tries Android's default voice instead of the selected English voice.
+- The previously generated MP3 audio remains available **only when explicitly requested** after an audio failure. It no longer plays automatically in the normal path.
+- Listen is credited only after `onstart`; answers unlock after `onend`; errors do not consume an attempt. Device verification remains required because Android's Web Speech implementation varies across versions.
+- New custom Noma leaf/sun app identity in SVG and Android 192/512 PNG manifest icons. Icon and version caches are versioned. Do not uninstall the PWA to refresh the launcher icon without first exporting progress to JSON.
+- No changes to SQLite, content IDs, databases, accounts, or local progress.
