@@ -62,7 +62,9 @@ self.addEventListener('fetch',event=>{
     event.respondWith((async()=>{
       try{
         const response=await fetch(request);
-        if(response.ok&&!response.redirected){
+        const shellRoot=new URL('./',self.registration.scope).pathname;
+        const shellIndex=new URL('./index.html',self.registration.scope).pathname;
+        if(response.ok&&!response.redirected&&(url.pathname===shellRoot||url.pathname===shellIndex)){
           const cache=await caches.open(CACHE);
           await cache.put(asURL('./index.html'),response.clone());
         }
