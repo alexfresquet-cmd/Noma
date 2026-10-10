@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1f4d3b">
+<title>Noma · prueba aislada de voz Android</title>
+<style>
+:root{font-family:system-ui,-apple-system,Roboto,sans-serif;color-scheme:light}
+*{box-sizing:border-box}body{margin:0;padding:22px 15px 60px;background:#f6f5f0;color:#23332a}
+main{max-width:650px;margin:auto}h1{font-size:27px;line-height:1.1}h2{font-size:19px;margin:0 0 11px}
+p{line-height:1.55;color:#4a5b51}section{background:white;border:1px solid #e2e8df;border-radius:16px;padding:16px;margin:15px 0}
+button{background:#1f4d3b;color:#fff;border:0;border-radius:11px;padding:13px 15px;font-weight:700;font-size:15px;cursor:pointer;min-height:46px}
+button.secondary{background:#e9eee9;color:#1d4738}button:disabled{opacity:.45}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0}
+.actions button{width:100%}label{display:block;font-weight:650;margin:12px 0 5px}
+select{width:100%;padding:12px;background:#fff;border:1px solid #a6b7aa;border-radius:11px;font-size:15px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.5;background:#f5f7f3;border-radius:9px;padding:12px;max-height:340px;overflow:auto}
+#status{padding:12px;border-radius:10px;background:#f0f4ed;font-weight:700}
+small{line-height:1.5;color:#536157}a{color:#225842}
+</style>
+</head>
+<body>
+<main>
+<a href="./">← Volver a Noma</a>
+<h1>Diagnóstico de voz nativa</h1>
+<p>Prueba la voz que Android y Chrome ofrecen a una PWA, sin MP3, motores externos ni modelos neuronales. No cambia tu progreso ni envía datos a ningún servidor.</p>
+<section>
+<h2>1. Entorno y voces detectadas</h2>
+<div id="environment">Cargando…</div>
+<p id="voicesCount" aria-live="polite">Buscando voces…</p>
+<button class="secondary" id="refresh">Actualizar voces</button>
+<pre id="voices" aria-label="Voces detectadas"></pre>
+</section>
+<section>
+<h2>2. Escucha comparativa</h2>
+<p>Frase: <strong>Although it was raining, we went out.</strong> Pulsa cada botón y comprueba si realmente se oye. El evento «inicio» por sí solo no garantiza que el altavoz haya sonado.</p>
+<div class="actions">
+<button id="gb">Sistema · inglés UK</button>
+<button id="us">Sistema · inglés US</button>
+<button id="local">Voz local inglesa</button>
+<button class="secondary" id="stop">Detener</button>
+</div>
+<label for="choose">Voz exacta expuesta por Chrome</label>
+<select id="choose"><option value="">Cargando voces…</option></select>
+<div class="actions"><button id="chosen">Escuchar voz elegida</button><button class="secondary" id="copy">Copiar diagnóstico</button></div>
+<div id="status" aria-live="polite">Preparado para probar.</div>
+</section>
+<section>
+<h2>3. Registro técnico</h2>
+<p><small>Si falla, copia este registro. Incluye el modo Chrome/PWA, voces detectadas y eventos de inicio, fin y error. Solo se copia al portapapeles al pulsar el botón.</small></p>
+<pre id="log">Sin pruebas todavía.</pre>
+</section>
+</main>
+<script>
+(function(){
+'use strict';
+var synth=window.speechSynthesis;
+var sample='Although it was raining, we went out.';
+var voiceList=[];
+var events=[];
+var activeUtterance=null;
+var report=document.getElementById('log');
+var status=document.getElementById('status');
+var options=document.getElementById('choose');
+function record(message){
+ var now=new Date().toLocaleTimeString();
+ events.push(now+' · '+message);
+ if(events.length>120)events.shift();
+ report.textContent=events.join('\n');
+}
+function describeVoice(v,i){
+ return String(i)+' · '+v.name+' | '+v.lang+' | '+(v.localService?'LOCAL':'RED/NO LOCAL')+(v.default?' | DEFAULT':'')+' | '+v.voiceURI;
+}
+var environment=[
+ 'Navegador: '+navigator.userAgent,
+ 'Origen: '+location.origin,
+ 'Instalada (standalone): '+(matchMedia('(display-mode: standalone)').matches?'sí':'no'),
+ 'Web Speech disponible: '+(!!synth),
+ 'Conexión indicada por navegador: '+(navigator.onLine?'online':'offline')
+].join('\n');
+document.getElementById('environment').textContent=environment;
+function updateVoices(){
+ if(!synth){document.getElementById('voicesCount').textContent='Web Speech no disponible';return;}
+ try{voiceList=synth.getVoices()||[];}catch(e){record('Error getVoices: '+e.message);voiceList=[];}
+ document.getElementById('voicesCount').textContent='Voces detectadas: '+voiceList.length+'; inglesas: '+voiceList.filter(function(v){return /^en(-|$)/i.test(v.lang||'');}).length;
+ document.getElementById('voices').textContent=voiceList.length?voiceList.map(describeVoice).join('\n'):'Lista vacía por ahora. La voz predeterminada puede seguir funcionando.';
+ var oldValue=options.value;
+ options.replaceChildren();
+ var blank=document.createElement('option');blank.value='';blank.textContent='Selecciona una voz…';options.appendChild(blank);
+ voiceList.forEach(function(v,i){
+  var opt=document.createElement('option');opt.value=String(i);opt.textContent=describeVoice(v,i);options.appendChild(opt);
+ });
+ if(oldValue!=='')options.value=oldValue;
+ document.getElementById('local').disabled=!voiceList.some(function(v){return /^en(-|$)/i.test(v.lang||'')&&v.localService;});
+ record('getVoices: '+voiceList.length+' voces; estado '+(synth.speaking?'hablando':synth.pending?'pendiente':'reposo'));
+}
+if(synth){
+ try{synth.addEventListener('voiceschanged',function(){record('voiceschanged recibido');updateVoices();});}catch(e){record('Sin listener voiceschanged: '+e.message);}
+ updateVoices();
+ setTimeout(updateVoices,600);
+ setTimeout(updateVoices,1800);
+}else{
+ document.getElementById('voicesCount').textContent='Web Speech no está disponible en este navegador.';
+ document.getElementById('voices').textContent='No existe window.speechSynthesis';
+}
+function speak(kind){
+ if(!synth||typeof SpeechSynthesisUtterance==='undefined'){record('No compatible');status.textContent='Web Speech no disponible';return;}
+ var voice=null;
+ var lang='en-GB';
+ if(kind==='us')lang='en-US';
+ if(kind==='local'){
+  voice=voiceList.find(function(v){return /^en-GB$/i.test(v.lang||'')&&v.localService;})
+   || voiceList.find(function(v){return /^en(-|$)/i.test(v.lang||'')&&v.localService;});
+  if(!voice){status.textContent='No hay voces inglesas locales detectadas';return;}
+ }
+ if(kind==='chosen'){
+  if(options.value===''){status.textContent='Selecciona una voz';return;}
+  voice=voiceList[Number(options.value)];
+  if(!voice){status.textContent='La voz ya no está disponible';return;}
+ }
+ if(voice)lang=voice.lang;
+ try{if(synth.speaking||synth.pending){record('Cancelación de voz previa');synth.cancel();}}catch(e){record('Error al detener anterior: '+e.message);}
+ var utter=new SpeechSynthesisUtterance(sample);
+ utter.lang=lang;
+ utter.rate=1;utter.pitch=1;utter.volume=1;
+ if(voice)utter.voice=voice;
+ activeUtterance=utter;
+ var label=kind+' / '+lang+' / '+(voice?voice.name:'voz NO fijada');
+ record('INTENTO: '+label);
+ status.textContent='Iniciando: '+label;
+ utter.onstart=function(e){record('START: '+label+'; tiempo='+e.elapsedTime);status.textContent='Chrome informa INICIO: '+label;};
+ utter.onend=function(e){record('END: '+label+'; tiempo='+e.elapsedTime);status.textContent='Chrome informa FIN. ¿La has oído realmente?';if(activeUtterance===utter)activeUtterance=null;};
+ utter.onerror=function(e){record('ERROR: '+label+'; código='+(e.error||'desconocido'));status.textContent='ERROR: '+(e.error||'desconocido');if(activeUtterance===utter)activeUtterance=null;};
+ utter.onboundary=function(e){if(e.charIndex===0)record('BOUNDARY detectado: '+label);};
+ try{
+  if(synth.paused){record('Motor pausado: se llama resume()');synth.resume();}
+  synth.speak(utter);
+  record('speak() invocado; speaking='+synth.speaking+'; pending='+synth.pending+'; paused='+synth.paused);
+  setTimeout(function(){if(activeUtterance===utter){record('A los 10 s: speaking='+synth.speaking+', pending='+synth.pending+', paused='+synth.paused+' (sin cancelación automática)');}},10000);
+ }catch(e){record('EXCEPCIÓN: '+e.name+' '+e.message);status.textContent='Excepción: '+e.message;}
+}
+document.getElementById('gb').addEventListener('click',function(){speak('gb');});
+document.getElementById('us').addEventListener('click',function(){speak('us');});
+document.getElementById('local').addEventListener('click',function(){speak('local');});
+document.getElementById('chosen').addEventListener('click',function(){speak('chosen');});
+document.getElementById('refresh').addEventListener('click',updateVoices);
+document.getElementById('stop').addEventListener('click',function(){try{if(synth)synth.cancel();activeUtterance=null;record('Detenido por el usuario');status.textContent='Detenido';}catch(e){record('Error stop: '+e.message);}});
+document.getElementById('copy').addEventListener('click',function(){
+ var text=['NOMA / DIAGNÓSTICO DE VOZ',environment,'',document.getElementById('voices').textContent,'',report.textContent].join('\n');
+ if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(function(){status.textContent='Diagnóstico copiado';},function(){status.textContent='No se pudo copiar; selecciona el registro';});
+ else {var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');status.textContent='Diagnóstico copiado';}catch(e){status.textContent='Copia manualmente el registro';}ta.remove();}
+});
+})();
+</script>
+</body>
+</html>
