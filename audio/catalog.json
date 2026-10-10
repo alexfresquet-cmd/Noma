@@ -1,0 +1,507 @@
+{
+  "pack_version": 1,
+  "language": "en-GB",
+  "voice": "espeak-ng/en-gb",
+  "items": [
+    {
+      "id": 1,
+      "term": "although",
+      "sentence": "Although it was raining, we went out."
+    },
+    {
+      "id": 2,
+      "term": "instead",
+      "sentence": "We stayed home instead."
+    },
+    {
+      "id": 3,
+      "term": "enough",
+      "sentence": "That is enough for today."
+    },
+    {
+      "id": 4,
+      "term": "still",
+      "sentence": "I still remember that place."
+    },
+    {
+      "id": 5,
+      "term": "already",
+      "sentence": "I have already finished."
+    },
+    {
+      "id": 6,
+      "term": "yet",
+      "sentence": "I haven’t finished yet."
+    },
+    {
+      "id": 7,
+      "term": "almost",
+      "sentence": "We are almost there."
+    },
+    {
+      "id": 8,
+      "term": "perhaps",
+      "sentence": "Perhaps we should leave earlier."
+    },
+    {
+      "id": 9,
+      "term": "instead of",
+      "sentence": "We walked instead of taking the car."
+    },
+    {
+      "id": 10,
+      "term": "even though",
+      "sentence": "Even though I was tired, I kept working."
+    },
+    {
+      "id": 11,
+      "term": "however",
+      "sentence": "It was expensive; however, it was worth it."
+    },
+    {
+      "id": 12,
+      "term": "unless",
+      "sentence": "I won’t go unless you come too."
+    },
+    {
+      "id": 13,
+      "term": "probably",
+      "sentence": "It will probably rain later."
+    },
+    {
+      "id": 14,
+      "term": "actually",
+      "sentence": "Actually, I changed my mind."
+    },
+    {
+      "id": 15,
+      "term": "usually",
+      "sentence": "I usually get up at seven."
+    },
+    {
+      "id": 16,
+      "term": "especially",
+      "sentence": "I like it, especially in summer."
+    },
+    {
+      "id": 17,
+      "term": "quite",
+      "sentence": "The film was quite good."
+    },
+    {
+      "id": 18,
+      "term": "would rather",
+      "sentence": "I would rather stay home."
+    },
+    {
+      "id": 19,
+      "term": "whole",
+      "sentence": "I spent the whole day there."
+    },
+    {
+      "id": 20,
+      "term": "several",
+      "sentence": "Several people called me."
+    },
+    {
+      "id": 21,
+      "term": "both",
+      "sentence": "Both options are fine."
+    },
+    {
+      "id": 22,
+      "term": "either",
+      "sentence": "Either day works for me."
+    },
+    {
+      "id": 23,
+      "term": "neither",
+      "sentence": "Neither answer is correct."
+    },
+    {
+      "id": 24,
+      "term": "another",
+      "sentence": "Can I have another coffee?"
+    },
+    {
+      "id": 25,
+      "term": "through",
+      "sentence": "We walked through the park."
+    },
+    {
+      "id": 26,
+      "term": "across",
+      "sentence": "The shop is across the street."
+    },
+    {
+      "id": 27,
+      "term": "towards",
+      "sentence": "She walked towards the station."
+    },
+    {
+      "id": 28,
+      "term": "within",
+      "sentence": "I’ll reply within an hour."
+    },
+    {
+      "id": 29,
+      "term": "without",
+      "sentence": "I left without my keys."
+    },
+    {
+      "id": 30,
+      "term": "during",
+      "sentence": "I fell asleep during the film."
+    },
+    {
+      "id": 31,
+      "term": "while",
+      "sentence": "I listened to music while cooking."
+    },
+    {
+      "id": 32,
+      "term": "since",
+      "sentence": "I have lived here since 2020."
+    },
+    {
+      "id": 33,
+      "term": "for",
+      "sentence": "I have waited for two hours."
+    },
+    {
+      "id": 34,
+      "term": "until",
+      "sentence": "I’ll stay until Friday."
+    },
+    {
+      "id": 35,
+      "term": "despite",
+      "sentence": "Despite the rain, we went out."
+    },
+    {
+      "id": 36,
+      "term": "because of",
+      "sentence": "The train was late because of the storm."
+    },
+    {
+      "id": 37,
+      "term": "as soon as",
+      "sentence": "Call me as soon as you arrive."
+    },
+    {
+      "id": 38,
+      "term": "at least",
+      "sentence": "At least we tried."
+    },
+    {
+      "id": 39,
+      "term": "by the way",
+      "sentence": "By the way, how was your trip?"
+    },
+    {
+      "id": 40,
+      "term": "in case",
+      "sentence": "Take an umbrella in case it rains."
+    },
+    {
+      "id": 41,
+      "term": "find out",
+      "sentence": "I need to find out what happened."
+    },
+    {
+      "id": 42,
+      "term": "figure out",
+      "sentence": "We need to figure out the problem."
+    },
+    {
+      "id": 43,
+      "term": "end up",
+      "sentence": "We ended up staying at home."
+    },
+    {
+      "id": 44,
+      "term": "pick up",
+      "sentence": "I’ll pick you up at eight."
+    },
+    {
+      "id": 45,
+      "term": "drop off",
+      "sentence": "Can you drop me off here?"
+    },
+    {
+      "id": 46,
+      "term": "look for",
+      "sentence": "I’m looking for my keys."
+    },
+    {
+      "id": 47,
+      "term": "look after",
+      "sentence": "Can you look after the dog?"
+    },
+    {
+      "id": 48,
+      "term": "give up",
+      "sentence": "Don’t give up yet."
+    },
+    {
+      "id": 49,
+      "term": "carry on",
+      "sentence": "Let’s carry on tomorrow."
+    },
+    {
+      "id": 50,
+      "term": "run out of",
+      "sentence": "We ran out of milk."
+    },
+    {
+      "id": 51,
+      "term": "turn out",
+      "sentence": "It turned out better than expected."
+    },
+    {
+      "id": 52,
+      "term": "set up",
+      "sentence": "I need to set up my new phone."
+    },
+    {
+      "id": 53,
+      "term": "work out",
+      "sentence": "We’ll work it out."
+    },
+    {
+      "id": 54,
+      "term": "make sure",
+      "sentence": "Make sure the door is closed."
+    },
+    {
+      "id": 55,
+      "term": "be used to",
+      "sentence": "I’m used to getting up early."
+    },
+    {
+      "id": 56,
+      "term": "get used to",
+      "sentence": "You’ll get used to it."
+    },
+    {
+      "id": 57,
+      "term": "used to",
+      "sentence": "I used to live in London."
+    },
+    {
+      "id": 58,
+      "term": "be supposed to",
+      "sentence": "We are supposed to meet at six."
+    },
+    {
+      "id": 59,
+      "term": "be about to",
+      "sentence": "I’m about to leave."
+    },
+    {
+      "id": 60,
+      "term": "have to",
+      "sentence": "I have to go now."
+    },
+    {
+      "id": 61,
+      "term": "might",
+      "sentence": "It might rain tonight."
+    },
+    {
+      "id": 62,
+      "term": "should",
+      "sentence": "You should get some rest."
+    },
+    {
+      "id": 63,
+      "term": "would",
+      "sentence": "I would choose the second one."
+    },
+    {
+      "id": 64,
+      "term": "could",
+      "sentence": "We could go tomorrow."
+    },
+    {
+      "id": 65,
+      "term": "need",
+      "sentence": "I need more time."
+    },
+    {
+      "id": 66,
+      "term": "seem",
+      "sentence": "You seem tired."
+    },
+    {
+      "id": 67,
+      "term": "mean",
+      "sentence": "What does this mean?"
+    },
+    {
+      "id": 68,
+      "term": "happen",
+      "sentence": "What happened yesterday?"
+    },
+    {
+      "id": 69,
+      "term": "matter",
+      "sentence": "It doesn’t matter."
+    },
+    {
+      "id": 70,
+      "term": "expect",
+      "sentence": "I didn’t expect that."
+    },
+    {
+      "id": 71,
+      "term": "manage",
+      "sentence": "I managed to finish on time."
+    },
+    {
+      "id": 72,
+      "term": "avoid",
+      "sentence": "Try to avoid that road."
+    },
+    {
+      "id": 73,
+      "term": "allow",
+      "sentence": "They don’t allow pets here."
+    },
+    {
+      "id": 74,
+      "term": "suggest",
+      "sentence": "I suggest taking the train."
+    },
+    {
+      "id": 75,
+      "term": "realize",
+      "sentence": "I realized I was wrong."
+    },
+    {
+      "id": 76,
+      "term": "remember",
+      "sentence": "Remember to call me."
+    },
+    {
+      "id": 77,
+      "term": "forget",
+      "sentence": "I forgot his name."
+    },
+    {
+      "id": 78,
+      "term": "decide",
+      "sentence": "We decided to stay."
+    },
+    {
+      "id": 79,
+      "term": "choose",
+      "sentence": "Choose the one you prefer."
+    },
+    {
+      "id": 80,
+      "term": "change",
+      "sentence": "Things can change quickly."
+    },
+    {
+      "id": 81,
+      "term": "improve",
+      "sentence": "My English is improving."
+    },
+    {
+      "id": 82,
+      "term": "notice",
+      "sentence": "Did you notice the difference?"
+    },
+    {
+      "id": 83,
+      "term": "agree",
+      "sentence": "I agree with you."
+    },
+    {
+      "id": 84,
+      "term": "disagree",
+      "sentence": "I disagree with that idea."
+    },
+    {
+      "id": 85,
+      "term": "wonder",
+      "sentence": "I wonder what happened."
+    },
+    {
+      "id": 86,
+      "term": "guess",
+      "sentence": "I guess you’re right."
+    },
+    {
+      "id": 87,
+      "term": "hope",
+      "sentence": "I hope everything goes well."
+    },
+    {
+      "id": 88,
+      "term": "wish",
+      "sentence": "I wish I had more time."
+    },
+    {
+      "id": 89,
+      "term": "miss",
+      "sentence": "I miss that place."
+    },
+    {
+      "id": 90,
+      "term": "spend",
+      "sentence": "I spent too much money."
+    },
+    {
+      "id": 91,
+      "term": "save",
+      "sentence": "I’m trying to save money."
+    },
+    {
+      "id": 92,
+      "term": "borrow",
+      "sentence": "Can I borrow your charger?"
+    },
+    {
+      "id": 93,
+      "term": "lend",
+      "sentence": "Can you lend me ten euros?"
+    },
+    {
+      "id": 94,
+      "term": "afford",
+      "sentence": "I can’t afford a new car."
+    },
+    {
+      "id": 95,
+      "term": "worth",
+      "sentence": "It was expensive but worth it."
+    },
+    {
+      "id": 96,
+      "term": "available",
+      "sentence": "Is this seat available?"
+    },
+    {
+      "id": 97,
+      "term": "likely",
+      "sentence": "It is likely to rain tomorrow."
+    },
+    {
+      "id": 98,
+      "term": "similar",
+      "sentence": "The two options are similar."
+    },
+    {
+      "id": 99,
+      "term": "different",
+      "sentence": "This one is different."
+    },
+    {
+      "id": 100,
+      "term": "on time",
+      "sentence": "The train arrived on time."
+    }
+  ]
+}
