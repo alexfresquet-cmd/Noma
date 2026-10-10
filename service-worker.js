@@ -1,11 +1,11 @@
 // Noma offline app shell. User progress remains in local SQLite/IndexedDB.
-const VERSION='0.20.3-beta.1';
+const VERSION='0.20.4-beta.1';
 const CACHE='noma-app-shell-'+VERSION;
 const SHELL=[
   './', './index.html',
   './manifest.webmanifest?v='+VERSION,
   './icon-192.png?v='+VERSION, './icon-512.png?v='+VERSION,
-  './diagnostico.html', './app-mark.svg'
+  './diagnostico.html', './app-mark.svg', './audio-prueba.html'
 ];
 const SQLITE_ASSETS=[
   'https://cdn.jsdelivr.net/npm/sql.js@1.14.2/dist/sql-wasm.min.js',

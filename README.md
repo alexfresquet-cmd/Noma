@@ -82,3 +82,10 @@ Noma uses 200 recorded synthetic MP3 clips from the 100 audited unit IDs (100 Li
 - Listen is credited only after `onstart`; answers unlock after `onend`; errors do not consume an attempt. Device verification remains required because Android's Web Speech implementation varies across versions.
 - New custom Noma leaf/sun app identity in SVG and Android 192/512 PNG manifest icons. Icon and version caches are versioned. Do not uninstall the PWA to refresh the launcher icon without first exporting progress to JSON.
 - No changes to SQLite, content IDs, databases, accounts, or local progress.
+
+## 0.20.4-beta.1: Android navigation
+
+- All non-home views record exactly one history entry on first entry. Secondary-to-secondary transitions update that entry so Android's Back gesture returns to Hoy, not to a previous menu or outside the PWA.
+- Returning to Hoy via a button consumes the secondary history entry. Back at Hoy is not trapped, so Android can exit Noma normally.
+- Listening, quizzes, local SQLite data and progress schema are unchanged.
+- Pilot neural voice comparison is staged separately to validate voice quality before replacing all recorded assets.

@@ -8,9 +8,9 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Noma — Beta 1</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=0.20.3-beta.1" crossorigin="use-credentials" />
-  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=0.20.3-beta.1" />
-  <link rel="apple-touch-icon" href="./icon-192.png?v=0.20.3-beta.1" />
+  <link rel="manifest" href="./manifest.webmanifest?v=0.20.4-beta.1" crossorigin="use-credentials" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=0.20.4-beta.1" />
+  <link rel="apple-touch-icon" href="./icon-192.png?v=0.20.4-beta.1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <style>
 :root {
@@ -301,7 +301,7 @@ button { cursor: pointer; }
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.20.3-beta.1';
+const APP_VERSION = '0.20.4-beta.1';
 const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
@@ -1301,7 +1301,53 @@ function nextTask(){
     completeSession(false);
   } else { save(); render(); requestAnimationFrame(()=>window.scrollTo(0,0)); }
 }
-function go(screen){ cancelEnglishSpeech(); if(activeRecognition){try{activeRecognition.abort();}catch(e){} activeRecognition=null;} state.screen=screen; save(); render(); }
+// Android back gesture uses the browser history, even inside an installed PWA.
+const NOMA_SCREENS=new Set(['home','exercise','done','forget','progress','pack','readerLibrary','reader']);
+let processingHistoryEvent=false;
+function routeAddress(screen){
+  const base=window.location.pathname+window.location.search;
+  return screen==='home'?base:base+'#'+encodeURIComponent(screen);
+}
+function syncBrowserHistory(){
+  if(processingHistoryEvent||!window.history?.pushState)return;
+  const current=window.history.state?.nomaScreen;
+  if(!NOMA_SCREENS.has(current)){
+    window.history.replaceState({nomaScreen:'home'},'',routeAddress('home'));
+  }
+  const before=window.history.state?.nomaScreen||'home';
+  const target=NOMA_SCREENS.has(state.screen)?state.screen:'home';
+  if(before===target)return;
+  if(target==='home'){
+    // Preserve an exit path: consume the sub-screen entry rather than
+    // stacking duplicate home entries that trap the Android back gesture.
+    window.history.back();
+  }else if(before==='home'){
+    window.history.pushState({nomaScreen:target},'',routeAddress(target));
+  }else{
+    // All secondary screens return directly to home when using Back.
+    window.history.replaceState({nomaScreen:target},'',routeAddress(target));
+  }
+}
+window.addEventListener('popstate',event=>{
+  if(!state)return;
+  const requested=event.state?.nomaScreen;
+  processingHistoryEvent=true;
+  cancelEnglishSpeech();
+  if(activeRecognition){try{activeRecognition.abort();}catch(e){} activeRecognition=null;}
+  state.screen=NOMA_SCREENS.has(requested)?requested:'home';
+  save();
+  render();
+  processingHistoryEvent=false;
+});
+function go(screen){
+  if(screen==='home'&&state.screen!=='home'&&window.history?.state?.nomaScreen!=='home'){
+    window.history.back();
+    return;
+  }
+  cancelEnglishSpeech();
+  if(activeRecognition){try{activeRecognition.abort();}catch(e){}activeRecognition=null;}
+  state.screen=screen;save();render();
+}
 
 function renderTop(){ return `<div class="topbar"><div class="brand"><img src="./app-mark.svg" alt="" aria-hidden="true">Noma</div><div class="lang">English · v${APP_VERSION}</div></div>`; }
 function renderNav(active){ return `<div class="bottom-dock"><nav class="bottom-nav"><button class="nav-btn ${active==='home'?'active':''}" onclick="go('home')">Hoy</button><button class="nav-btn ${active==='forget'?'active':''}" onclick="go('forget')">Forget Me</button><button class="nav-btn ${active==='progress'?'active':''}" onclick="go('progress')">Progreso</button><button class="nav-btn ${active==='pack'?'active':''}" onclick="go('pack')">Pack</button></nav></div>`; }
@@ -2145,6 +2191,7 @@ function render(){
   app.classList.toggle('exercise-shell',state.screen==='exercise');
   app.innerHTML=(screens[state.screen]||home)();
   if(state.screen!=='exercise') window.scrollTo(0,0);
+  syncBrowserHistory();
 }
 window.go=go; window.buildSession=buildSession; window.finishSessionEarly=finishSessionEarly; window.buildListenSession=buildListenSession; window.buildPronounceSession=buildPronounceSession; window.checkWord=checkWord; window.dontKnowWord=dontKnowWord; window.checkSentence=checkSentence; window.dontKnowSentence=dontKnowSentence; window.checkRecall=checkRecall; window.nextTask=nextTask; window.seedForgetMe=seedForgetMe; window.resetDemo=resetDemo; window.playListen=playListen; window.playBasicListen=playBasicListen; window.playBasicPronounce=playBasicPronounce; window.checkListen=checkListen; window.dontKnowListen=dontKnowListen; window.exportBackup=exportBackup; window.importBackup=importBackup; window.startReader=startReader; window.exitReader=exitReader; window.beginReaderQuestions=beginReaderQuestions; window.answerReaderOption=answerReaderOption; window.nextReaderQuestion=nextReaderQuestion; window.playPronounce=playPronounce; window.startPronounceRecognition=startPronounceRecognition; window.retryPronounce=retryPronounce;
 function renderStorageFailure(error){
@@ -2186,6 +2233,10 @@ async function bootstrap(){
   }
   // A fresh launch always opens on Hoy. Learning history remains untouched.
   state.screen='home'; state.session=null; state.readerSession=null; save();
+  // Initial history entry is home; subsequent screens are tracked explicitly.
+  if(window.history?.replaceState){
+    window.history.replaceState({nomaScreen:'home'},'',routeAddress('home'));
+  }
   render();
 }
 window.recoverStorageFromBackup=recoverStorageFromBackup;
