@@ -89,3 +89,9 @@ Noma uses 200 recorded synthetic MP3 clips from the 100 audited unit IDs (100 Li
 - Returning to Hoy via a button consumes the secondary history entry. Back at Hoy is not trapped, so Android can exit Noma normally.
 - Listening, quizzes, local SQLite data and progress schema are unchanged.
 - Pilot neural voice comparison is staged separately to validate voice quality before replacing all recorded assets.
+
+## Audio neuronal: experimento controlado
+
+- `/audio-prueba.html` compara seis frases con Kokoro-82M, voces `bf_emma` y `af_heart`. Los archivos se generan una sola vez en GitHub Actions, nunca con datos del usuario.
+- Kokoro y sus pesos están publicados bajo Apache-2.0: https://huggingface.co/hexgrad/Kokoro-82M
+- No activar el audio nuevo para las sesiones de aprendizaje antes de validar que se escucha y que el usuario prefiere su naturalidad. Los 200 archivos previos de respaldo permanecen.
