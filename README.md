@@ -59,3 +59,7 @@ Word, Sentence and Combined practice now plan **up to 10 exercises per session**
 - SQLite and its emergency mirror remain stored **only in the browser of that origin**; no online database, account or sync was introduced.
 - **Before changing domain** from GitHub Pages to Vercel: export a JSON backup from the old origin, save the file outside the browser, install/open the new origin and import the backup. Test a few progress counters on both. Do not delete the original installation until verified.
 - Listen Once does not count playback until the synthesizer emits `onstart`; failures/timeouts reopen playback to avoid locking the exercise. English voices are still provided by the Android browser/device and require an actual device test.
+
+## Installability correction (0.20.1-beta.2)
+
+Replaced invalid/truncated PNG app icons with valid PNG files (192 and 512 px). Cache version incremented so existing service-worker installations recache the valid icons. Open the URL in the full Chrome browser rather than an in-app Custom Tab for Android installation tests.

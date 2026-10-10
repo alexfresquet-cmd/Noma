@@ -1,5 +1,5 @@
 // Noma app shell - cache only public assets, never personal learning state.
-const CACHE='noma-app-shell-0.20.1-beta.1';
+const CACHE='noma-app-shell-0.20.1-beta.2';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 const SQLITE_ASSETS=[
   'https://cdn.jsdelivr.net/npm/sql.js@1.14.2/dist/sql-wasm.min.js',
