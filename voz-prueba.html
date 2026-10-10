@@ -29,6 +29,7 @@ small{line-height:1.5;color:#536157}a{color:#225842}
 <h2>1. Entorno y voces detectadas</h2>
 <div id="environment">Cargando…</div>
 <p id="voicesCount" aria-live="polite">Buscando voces…</p>
+<p><strong>Voces inglesas reconocidas por Chrome:</strong></p><pre id="englishVoices">Buscando…</pre>
 <button class="secondary" id="refresh">Actualizar voces</button>
 <pre id="voices" aria-label="Voces detectadas"></pre>
 </section>
@@ -36,6 +37,8 @@ small{line-height:1.5;color:#536157}a{color:#225842}
 <h2>2. Escucha comparativa</h2>
 <p>Frase: <strong>Although it was raining, we went out.</strong> Pulsa cada botón y comprueba si realmente se oye. El evento «inicio» por sí solo no garantiza que el altavoz haya sonado.</p>
 <div class="actions">
+<button id="es">Sistema · español</button>
+<button id="minimal">Sin idioma forzado</button>
 <button id="gb">Sistema · inglés UK</button>
 <button id="us">Sistema · inglés US</button>
 <button id="local">Voz local inglesa</button>
@@ -83,7 +86,10 @@ document.getElementById('environment').textContent=environment;
 function updateVoices(){
  if(!synth){document.getElementById('voicesCount').textContent='Web Speech no disponible';return;}
  try{voiceList=synth.getVoices()||[];}catch(e){record('Error getVoices: '+e.message);voiceList=[];}
- document.getElementById('voicesCount').textContent='Voces detectadas: '+voiceList.length+'; inglesas: '+voiceList.filter(function(v){return /^en(-|$)/i.test(v.lang||'');}).length;
+ var english=voiceList.filter(function(v){return /^en(-|$)/i.test(v.lang||'');});
+ var englishLocal=english.filter(function(v){return v.localService;});
+ document.getElementById('voicesCount').textContent='Voces detectadas: '+voiceList.length+'; inglesas: '+english.length+'; inglesas locales: '+englishLocal.length;
+ document.getElementById('englishVoices').textContent=english.length?english.map(function(v){return v.name+' | '+v.lang+' | '+(v.localService?'LOCAL':'NO LOCAL')+(v.default?' | PREDETERMINADA':'');}).join('\n'):'Chrome no devuelve voces inglesas en getVoices().';
  document.getElementById('voices').textContent=voiceList.length?voiceList.map(describeVoice).join('\n'):'Lista vacía por ahora. La voz predeterminada puede seguir funcionando.';
  var oldValue=options.value;
  options.replaceChildren();
@@ -109,6 +115,8 @@ function speak(kind){
  var voice=null;
  var lang='en-GB';
  if(kind==='us')lang='en-US';
+ if(kind==='es')lang='es-ES';
+ if(kind==='minimal')lang='sin fijar';
  if(kind==='local'){
   voice=voiceList.find(function(v){return /^en-GB$/i.test(v.lang||'')&&v.localService;})
    || voiceList.find(function(v){return /^en(-|$)/i.test(v.lang||'')&&v.localService;});
@@ -121,9 +129,9 @@ function speak(kind){
  }
  if(voice)lang=voice.lang;
  try{if(synth.speaking||synth.pending){record('Cancelación de voz previa');synth.cancel();}}catch(e){record('Error al detener anterior: '+e.message);}
- var utter=new SpeechSynthesisUtterance(sample);
- utter.lang=lang;
- utter.rate=1;utter.pitch=1;utter.volume=1;
+ var utter=new SpeechSynthesisUtterance(kind==='es'?'Hola, esta es una prueba del motor de voz de Android.':kind==='minimal'?'Hello, this is a simple voice test.':sample);
+ if(kind!=='minimal')utter.lang=lang;
+ if(kind!=='minimal'){utter.rate=1;utter.pitch=1;utter.volume=1;}
  if(voice)utter.voice=voice;
  activeUtterance=utter;
  var label=kind+' / '+lang+' / '+(voice?voice.name:'voz NO fijada');
@@ -140,6 +148,8 @@ function speak(kind){
   setTimeout(function(){if(activeUtterance===utter){record('A los 10 s: speaking='+synth.speaking+', pending='+synth.pending+', paused='+synth.paused+' (sin cancelación automática)');}},10000);
  }catch(e){record('EXCEPCIÓN: '+e.name+' '+e.message);status.textContent='Excepción: '+e.message;}
 }
+document.getElementById('es').addEventListener('click',function(){speak('es');});
+document.getElementById('minimal').addEventListener('click',function(){speak('minimal');});
 document.getElementById('gb').addEventListener('click',function(){speak('gb');});
 document.getElementById('us').addEventListener('click',function(){speak('us');});
 document.getElementById('local').addEventListener('click',function(){speak('local');});
