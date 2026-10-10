@@ -63,3 +63,10 @@ Word, Sentence and Combined practice now plan **up to 10 exercises per session**
 ## Installability correction (0.20.1-beta.2)
 
 Replaced invalid/truncated PNG app icons with valid PNG files (192 and 512 px). Cache version incremented so existing service-worker installations recache the valid icons. Open the URL in the full Chrome browser rather than an in-app Custom Tab for Android installation tests.
+
+## Installation diagnostic (0.20.1-beta.3)
+
+- Open `/diagnostico.html` in the full Android Chrome browser. It verifies manifest delivery, icon decode, service-worker activation and local cache coverage without touching SQLite.
+- SW pre-cache now uses independent fetches, so a CDN or optional-file failure no longer prevents SW installation. JS/WASM presence is reported separately, and offline must be tested on device.
+- Manifest and icon paths include a version parameter to avoid Chrome reusing the originally truncated icons.
+- The manifest requests same-origin credentials if a preview has Vercel authentication; a protected production deployment can still prevent Android WebAPK installation. Check Vercel Deployment Protection if diagnostics report authentication or HTML in place of manifest/icons.
