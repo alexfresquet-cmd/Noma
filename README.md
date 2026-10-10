@@ -70,3 +70,7 @@ Replaced invalid/truncated PNG app icons with valid PNG files (192 and 512 px). 
 - SW pre-cache now uses independent fetches, so a CDN or optional-file failure no longer prevents SW installation. JS/WASM presence is reported separately, and offline must be tested on device.
 - Manifest and icon paths include a version parameter to avoid Chrome reusing the originally truncated icons.
 - The manifest requests same-origin credentials if a preview has Vercel authentication; a protected production deployment can still prevent Android WebAPK installation. Check Vercel Deployment Protection if diagnostics report authentication or HTML in place of manifest/icons.
+
+## 0.20.2-beta.1 — offline Listen/Pronounce audio
+
+Noma uses 200 recorded synthetic MP3 clips from the 100 audited unit IDs (100 Listen sentences, 100 Pronounce terms). These play via the HTML audio API independently of Android speech synthesis. Web Speech remains a fallback with detailed error codes. Audio files cache on use and are requested in the background for offline support. MP3 files are generated using espeak-ng; the naturalness of the voice is a separate future quality decision.

@@ -1,5 +1,5 @@
 // Noma offline app shell. User progress remains in local SQLite/IndexedDB.
-const VERSION='0.20.1-beta.3';
+const VERSION='0.20.2-beta.1';
 const CACHE='noma-app-shell-'+VERSION;
 const SHELL=[
   './', './index.html',
@@ -12,6 +12,37 @@ const SQLITE_ASSETS=[
   'https://cdn.jsdelivr.net/npm/sql.js@1.14.2/dist/sql-wasm.wasm'
 ];
 const CACHEABLE=[...SHELL,...SQLITE_ASSETS];
+const AUDIO_BASE=new URL('./audio/',self.registration.scope).pathname;
+function isAudio(url){
+  if(url.origin!==self.location.origin||!url.pathname.startsWith(AUDIO_BASE))return false;
+  const parts=url.pathname.slice(AUDIO_BASE.length).split('/');
+  const id=Number(parts[1]?.replace('.mp3',''));
+  return parts.length===2 && ['listen','pronounce'].includes(parts[0])
+    && parts[1]?.endsWith('.mp3') && Number.isInteger(id) && id>=1 && id<=100;
+}
+async function warmAudioCache(){
+  const cache=await caches.open(CACHE);
+  const paths=[];
+  for(const folder of ['listen','pronounce']){
+    for(let n=1;n<=100;n++)paths.push('./audio/'+folder+'/'+n+'.mp3');
+  }
+  let next=0;
+  async function work(){
+    while(next<paths.length){
+      const path=paths[next++],url=asURL(path);
+      if(await cache.match(url))continue;
+      try{
+        const response=await fetch(url,{cache:'reload'});
+        if(response.ok&&response.type!=='opaque')await cache.put(url,response);
+      }catch(e){/* Offline will retry missing clips on next online launch. */}
+    }
+  }
+  await Promise.all(Array.from({length:4},()=>work()));
+}
+self.addEventListener('message',event=>{
+  if(event.data?.type==='NOMA_CACHE_AUDIO')event.waitUntil(warmAudioCache());
+});
+
 const asURL=(path)=>new URL(path,self.registration.scope).href;
 self.addEventListener('install',(event)=>{
   event.waitUntil((async()=>{
@@ -58,6 +89,19 @@ self.addEventListener('fetch',event=>{
     return;
   }
   if(url.origin!==self.location.origin)return;
+  if(isAudio(url)){
+    event.respondWith((async()=>{
+      const match=await caches.match(request);
+      if(match)return match;
+      const response=await fetch(request);
+      if(response.ok&&response.type!=='opaque'){
+        const cache=await caches.open(CACHE);
+        await cache.put(request,response.clone());
+      }
+      return response;
+    })());
+    return;
+  }
   if(request.mode==='navigate'){
     event.respondWith((async()=>{
       try{

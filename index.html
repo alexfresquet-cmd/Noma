@@ -300,7 +300,7 @@ button { cursor: pointer; }
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.20.1-beta.3';
+const APP_VERSION = '0.20.2-beta.1';
 const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
@@ -1288,6 +1288,7 @@ function nextTask(){
   const s=state.session;
   s.response=null;
   s.listenPlayed=false;
+  s.listenLoading=false;
   s.listenError=null;
   s.pronounceListening=false;
   s.pronounceError=null;
@@ -1545,101 +1546,136 @@ function checkRecall(){
   s.response={ok:false,answer:input}; save(); render();
 }
 
-// Speech synthesis is local to the browser. Never mark Listen Once as played
-// until Android confirms actual playback via the onstart event.
+
 let activeSpeechStop=null;
+let activeMediaStop=null;
+let activeUtterance=null;
 function cancelEnglishSpeech(){
-  if(activeSpeechStop){ activeSpeechStop(); activeSpeechStop=null; }
+  if(activeMediaStop){const stop=activeMediaStop;activeMediaStop=null;stop();}
+  if(activeSpeechStop){const stop=activeSpeechStop;activeSpeechStop=null;stop();}
+  activeUtterance=null;
   if('speechSynthesis' in window){
-    try{ if(window.speechSynthesis.speaking||window.speechSynthesis.pending) window.speechSynthesis.cancel(); }catch(e){}
+    try{if(window.speechSynthesis.speaking||window.speechSynthesis.pending)window.speechSynthesis.cancel();}catch(e){}
   }
 }
 function chooseEnglishVoice(){
-  if(!('speechSynthesis' in window)) return null;
+  if(!('speechSynthesis' in window))return null;
   const voices=window.speechSynthesis.getVoices()||[];
   const english=voices.filter(v=>(v.lang||'').toLowerCase().startsWith('en'));
-  // Prefer installed/local voices: a remote British voice can fail offline.
   return english.find(v=>v.localService&&(v.lang||'').toLowerCase().startsWith('en-gb'))
-      || english.find(v=>v.localService)
-      || english.find(v=>(v.lang||'').toLowerCase().startsWith('en-gb'))
-      || english[0] || null;
-}
-if('speechSynthesis' in window){
-  // Chrome/Android commonly populates the voice list asynchronously.
-  try{ window.speechSynthesis.getVoices(); }catch(e){}
-  window.speechSynthesis.addEventListener?.('voiceschanged',()=>{ try{chooseEnglishVoice();}catch(e){} });
+    || english.find(v=>v.localService)
+    || english.find(v=>(v.lang||'').toLowerCase().startsWith('en-gb'))
+    || english[0] || null;
 }
 function speakEnglish(text,rate,{onStart=()=>{},onEnd=()=>{},onError=()=>{}}={}){
   if(!('speechSynthesis' in window)||typeof SpeechSynthesisUtterance==='undefined'){
-    onError('not-supported'); return;
+    onError('no-web-speech');return;
   }
   cancelEnglishSpeech();
-  const synth=window.speechSynthesis;
-  const utter=new SpeechSynthesisUtterance(text);
+  const synth=window.speechSynthesis,utter=new SpeechSynthesisUtterance(text);
   const voice=chooseEnglishVoice();
-  if(voice){ utter.voice=voice; utter.lang=voice.lang; }else{ utter.lang='en-GB'; }
-  utter.rate=rate; utter.pitch=1; utter.volume=1;
-  let active=true, started=false, watchdog=null;
-  const clear=()=>{ if(watchdog!==null){ clearTimeout(watchdog); watchdog=null; } };
-  const close=()=>{
-    if(!active) return false;
-    active=false; clear();
-    if(activeSpeechStop===stop) activeSpeechStop=null;
-    return true;
-  };
-  const stop=()=>{ active=false; clear(); };
-  const fail=(code)=>{if(close()) onError(code||'speech-failed');};
+  if(voice){utter.voice=voice;utter.lang=voice.lang;}else{utter.lang='en-GB';}
+  utter.rate=rate;utter.pitch=1;utter.volume=1;
+  let active=true,started=false,watchdog=null;
+  const clear=()=>{if(watchdog!==null){clearTimeout(watchdog);watchdog=null;}};
+  const stop=()=>{active=false;clear();if(activeUtterance===utter)activeUtterance=null;};
+  const finish=()=>{if(!active)return false;stop();if(activeSpeechStop===stop)activeSpeechStop=null;return true;};
+  const fail=code=>{if(finish())onError(code||'unknown-tts');};
   utter.onstart=()=>{
-    if(!active) return;
-    started=true; clear();
-    onStart();
-    // A lost onend must not lock Listen's answer controls forever.
-    watchdog=setTimeout(()=>{try{synth.cancel();}catch(e){} fail('playback-timeout');},Math.max(12000,text.length*250));
+    if(!active)return;
+    started=true;clear();onStart();
+    watchdog=setTimeout(()=>{try{synth.cancel();}catch(e){}fail('tts-ended-timeout');},
+      Math.max(12000,text.length*250));
   };
-  utter.onend=()=>{if(close()) onEnd();};
-  utter.onerror=(event)=>fail(event?.error||'speech-failed');
-  activeSpeechStop=stop;
+  utter.onend=()=>{if(finish())onEnd();};
+  utter.onerror=event=>fail(event?.error||'tts-error');
+  activeSpeechStop=stop;activeUtterance=utter;
   try{
-    if(synth.paused) synth.resume();
+    if(synth.paused)synth.resume();
     synth.speak(utter);
     watchdog=setTimeout(()=>{
-      if(active&&!started){ try{synth.cancel();}catch(e){} fail('no-start'); }
+      if(active&&!started){try{synth.cancel();}catch(e){}fail('tts-start-timeout');}
     },6500);
-  }catch(e){ fail('speech-failed'); }
+  }catch(e){fail(e?.message||'tts-exception');}
+}
+function audioClip(kind,id){return './audio/'+kind+'/'+encodeURIComponent(String(id))+'.mp3';}
+// Static MP3 playback is independent of the Web Speech engine on Android.
+function playBundledAudio(path,{onStart=()=>{},onEnd=()=>{},onError=()=>{}}={}){
+  cancelEnglishSpeech();
+  const player=new Audio(path);
+  player.preload='auto';
+  let active=true,started=false,watchdog=null;
+  const clear=()=>{if(watchdog!==null){clearTimeout(watchdog);watchdog=null;}};
+  const stop=()=>{
+    if(!active)return;
+    active=false;clear();
+    player.onplaying=null;player.onended=null;player.onerror=null;
+    try{player.pause();player.removeAttribute('src');player.load();}catch(e){}
+  };
+  const finish=()=>{
+    if(!active)return false;
+    active=false;clear();
+    player.onplaying=null;player.onended=null;player.onerror=null;
+    if(activeMediaStop===stop)activeMediaStop=null;
+    return true;
+  };
+  const fail=code=>{if(finish())onError(code);};
+  activeMediaStop=stop;
+  player.onplaying=()=>{
+    if(!active||started)return;
+    started=true;clear();onStart();
+  };
+  player.onended=()=>{
+    if(!active)return;
+    if(!started){started=true;onStart();}
+    if(finish())onEnd();
+  };
+  player.onerror=()=>fail('media-error-'+(player.error?.code||'unknown'));
+  try{
+    const pending=player.play(); // Called directly inside tap event.
+    pending?.catch?.(e=>fail(e?.name||e?.message||'play-rejected'));
+    watchdog=setTimeout(()=>{if(active&&!started)fail('mp3-start-timeout');},9000);
+  }catch(e){fail(e?.name||e?.message||'play-exception');}
 }
 function setListenControls(enabled,message,isError=false){
   const input=document.getElementById('listenInput');
   const noBtn=document.getElementById('listenDontKnow');
   const checkBtn=document.getElementById('listenCheck');
   const status=document.getElementById('listenState');
-  if(input) input.disabled=!enabled;
-  if(noBtn) noBtn.disabled=!enabled;
-  if(checkBtn) checkBtn.disabled=!enabled;
+  if(input)input.disabled=!enabled;
+  if(noBtn)noBtn.disabled=!enabled;
+  if(checkBtn)checkBtn.disabled=!enabled;
   if(status){status.textContent=message||'';status.classList.toggle('listen-error',!!isError);}
 }
 function playListen(){
   const s=state.session,task=currentTask();
-  if(!s||!task||task.type!=='listen'||s.listenPlayed) return;
-  const u=getUnit(task.unitId);
-  const isCurrent=()=>state.session===s&&currentTask()===task;
-  s.listenError=null;
+  if(!s||!task||task.type!=='listen'||s.listenPlayed||s.listenLoading)return;
+  const u=getUnit(task.unitId),isCurrent=()=>state.session===s&&currentTask()===task;
+  s.listenError=null;s.listenLoading=true;
   const play=document.getElementById('listenPlay');
-  if(play) play.disabled=true;
-  setListenControls(false,'Preparando voz…');
-  speakEnglish(u.en,.92,{
-    onStart:()=>{
-      if(!isCurrent()) return;
-      s.listenPlayed=true; s.listenError=null; save();
-      setListenControls(false,'Escuchando…');
-    },
-    onEnd:()=>{
-      if(isCurrent()) setListenControls(true,'Escuchado · escribe lo que has oído');
-    },
-    onError:()=>{
-      if(!isCurrent()) return;
+  if(play)play.disabled=true;
+  setListenControls(false,'Preparando audio local…');
+  const onStart=()=>{
+    if(!isCurrent())return;
+    s.listenLoading=false;s.listenPlayed=true;s.listenError=null;
+    save();setListenControls(false,'Escuchando…');
+  };
+  const onEnd=()=>{if(isCurrent())setListenControls(true,'Escuchado · escribe lo que has oído');};
+  playBundledAudio(audioClip('listen',u.id),{
+    onStart,onEnd,
+    onError:reason=>{
+      if(!isCurrent())return;
       s.listenPlayed=false;
-      s.listenError='El audio no ha comenzado o se ha interrumpido. Puedes pulsar ▶ para reintentarlo. Comprueba el volumen y la voz inglesa de Android.';
-      save();render();
+      setListenControls(false,'Probando voz alternativa…');
+      speakEnglish(u.en,.92,{
+        onStart,onEnd,
+        onError:code=>{
+          if(!isCurrent())return;
+          s.listenLoading=false;s.listenPlayed=false;
+          s.listenError='No se ha podido reproducir el MP3 ('+reason+') ni la voz Android ('+code+'). Comprueba el volumen multimedia y la conexión.';
+          save();render();
+        }
+      });
     }
   });
 }
@@ -1675,15 +1711,22 @@ function dontKnowListen(){
   s.response={ok:false,answer:'',explicitDontKnow:true}; save(); render();
 }
 
+
 function playPronounce(){
-  const task=currentTask(),s=state.session;
-  if(!s||!task||task.type!=='pronounce') return;
-  const u=getUnit(task.unitId);
-  speakEnglish(u.term,.82,{
-    onError:()=>{
-      if(state.session!==s||currentTask()!==task) return;
-      s.pronounceError='No se ha podido reproducir la pronunciación. Comprueba el volumen y las voces inglesas de Android.';
-      save();render();
+  const s=state.session,task=currentTask();
+  if(!s||!task||task.type!=='pronounce')return;
+  const u=getUnit(task.unitId),isCurrent=()=>state.session===s&&currentTask()===task;
+  s.pronounceError=null;
+  playBundledAudio(audioClip('pronounce',u.id),{
+    onError:reason=>{
+      if(!isCurrent())return;
+      speakEnglish(u.term,.82,{
+        onError:code=>{
+          if(!isCurrent())return;
+          s.pronounceError='Error de MP3 ('+reason+') y voz Android ('+code+').';
+          save();render();
+        }
+      });
     }
   });
 }
@@ -2120,7 +2163,12 @@ async function bootstrap(){
 window.recoverStorageFromBackup=recoverStorageFromBackup;
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'}).catch(error=>console.warn('Noma offline no disponible',error));
+    navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'})
+      .then(async reg=>{
+        const active=await navigator.serviceWorker.ready;
+        active.active?.postMessage({type:'NOMA_CACHE_AUDIO'});
+      })
+      .catch(error=>console.warn('Noma offline no disponible',error));
   });
 }
 bootstrap();
