@@ -1557,9 +1557,12 @@ function cancelEnglishSpeech(){
 function chooseEnglishVoice(){
   if(!('speechSynthesis' in window)) return null;
   const voices=window.speechSynthesis.getVoices()||[];
-  return voices.find(v=>(v.lang||'').toLowerCase().startsWith('en-gb'))
-      || voices.find(v=>(v.lang||'').toLowerCase().startsWith('en'))
-      || null;
+  const english=voices.filter(v=>(v.lang||'').toLowerCase().startsWith('en'));
+  // Prefer installed/local voices: a remote British voice can fail offline.
+  return english.find(v=>v.localService&&(v.lang||'').toLowerCase().startsWith('en-gb'))
+      || english.find(v=>v.localService)
+      || english.find(v=>(v.lang||'').toLowerCase().startsWith('en-gb'))
+      || english[0] || null;
 }
 if('speechSynthesis' in window){
   // Chrome/Android commonly populates the voice list asynchronously.
