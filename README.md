@@ -50,3 +50,12 @@ The counter model from v0.19 remains intentionally unchanged unless real usage g
 ## Session length
 
 Word, Sentence and Combined practice now plan **up to 10 exercises per session**. A visible **Terminar** action lets the learner stop at any point; completed answers are kept and unfinished items are not penalised. Listen Once and Pronounce remain at 4 items for now.
+
+## Vercel / Android PWA (0.20.1-beta.1)
+
+- Static build: import `alexfresquet-cmd/Noma` in Vercel with Framework Preset **Other**, root `./`, no build and output directory `.`. `vercel.json` pins these settings.
+- `manifest.webmanifest`, `icon-192.png`, `icon-512.png` and `service-worker.js` enable installation and offline app shell.
+- The service worker precaches the pinned sql.js runtime (JS + WASM) alongside Noma. Validate service-worker activation and actual airplane-mode relaunch on Android; deployment alone is not an offline test.
+- SQLite and its emergency mirror remain stored **only in the browser of that origin**; no online database, account or sync was introduced.
+- **Before changing domain** from GitHub Pages to Vercel: export a JSON backup from the old origin, save the file outside the browser, install/open the new origin and import the backup. Test a few progress counters on both. Do not delete the original installation until verified.
+- Listen Once does not count playback until the synthesizer emits `onstart`; failures/timeouts reopen playback to avoid locking the exercise. English voices are still provided by the Android browser/device and require an actual device test.

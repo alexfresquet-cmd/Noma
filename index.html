@@ -7,7 +7,11 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>Noma — Beta 1.1</title>
+  <title>Noma — Beta 1</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
   <style>
 :root {
   --bg: #f5f3ee;
@@ -296,7 +300,7 @@ button { cursor: pointer; }
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.20.0-beta.2';
+const APP_VERSION = '0.20.1-beta.1';
 const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
@@ -1247,7 +1251,7 @@ function currentTask(){ return state.session?.tasks[state.session.index]; }
 let activeRecognition=null;
 
 function completeSession(early=false){
-  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  cancelEnglishSpeech();
   if(activeRecognition){ try{activeRecognition.abort();}catch(e){} activeRecognition=null; }
   const s=state.session;
   if(!s) return;
@@ -1279,7 +1283,7 @@ function finishSessionEarly(){
   completeSession(true);
 }
 function nextTask(){
-  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  cancelEnglishSpeech();
   if(activeRecognition){ try{activeRecognition.abort();}catch(e){} activeRecognition=null; }
   const s=state.session;
   s.response=null;
@@ -1293,7 +1297,7 @@ function nextTask(){
     completeSession(false);
   } else { save(); render(); requestAnimationFrame(()=>window.scrollTo(0,0)); }
 }
-function go(screen){ if('speechSynthesis' in window) window.speechSynthesis.cancel(); if(activeRecognition){try{activeRecognition.abort();}catch(e){} activeRecognition=null;} state.screen=screen; save(); render(); }
+function go(screen){ cancelEnglishSpeech(); if(activeRecognition){try{activeRecognition.abort();}catch(e){} activeRecognition=null;} state.screen=screen; save(); render(); }
 
 function renderTop(){ return `<div class="topbar"><div class="brand">Noma</div><div class="lang">English · v${APP_VERSION}</div></div>`; }
 function renderNav(active){ return `<div class="bottom-dock"><nav class="bottom-nav"><button class="nav-btn ${active==='home'?'active':''}" onclick="go('home')">Hoy</button><button class="nav-btn ${active==='forget'?'active':''}" onclick="go('forget')">Forget Me</button><button class="nav-btn ${active==='progress'?'active':''}" onclick="go('progress')">Progreso</button><button class="nav-btn ${active==='pack'?'active':''}" onclick="go('pack')">Pack</button></nav></div>`; }
@@ -1541,12 +1545,66 @@ function checkRecall(){
   s.response={ok:false,answer:input}; save(); render();
 }
 
+// Speech synthesis is local to the browser. Never mark Listen Once as played
+// until Android confirms actual playback via the onstart event.
+let activeSpeechStop=null;
+function cancelEnglishSpeech(){
+  if(activeSpeechStop){ activeSpeechStop(); activeSpeechStop=null; }
+  if('speechSynthesis' in window){
+    try{ if(window.speechSynthesis.speaking||window.speechSynthesis.pending) window.speechSynthesis.cancel(); }catch(e){}
+  }
+}
 function chooseEnglishVoice(){
   if(!('speechSynthesis' in window)) return null;
   const voices=window.speechSynthesis.getVoices()||[];
-  return voices.find(v=>(v.lang||'').toLowerCase().startsWith('en-gb')) || voices.find(v=>(v.lang||'').toLowerCase().startsWith('en')) || null;
+  return voices.find(v=>(v.lang||'').toLowerCase().startsWith('en-gb'))
+      || voices.find(v=>(v.lang||'').toLowerCase().startsWith('en'))
+      || null;
 }
-function setListenControls(enabled, message, isError=false){
+if('speechSynthesis' in window){
+  // Chrome/Android commonly populates the voice list asynchronously.
+  try{ window.speechSynthesis.getVoices(); }catch(e){}
+  window.speechSynthesis.addEventListener?.('voiceschanged',()=>{ try{chooseEnglishVoice();}catch(e){} });
+}
+function speakEnglish(text,rate,{onStart=()=>{},onEnd=()=>{},onError=()=>{}}={}){
+  if(!('speechSynthesis' in window)||typeof SpeechSynthesisUtterance==='undefined'){
+    onError('not-supported'); return;
+  }
+  cancelEnglishSpeech();
+  const synth=window.speechSynthesis;
+  const utter=new SpeechSynthesisUtterance(text);
+  const voice=chooseEnglishVoice();
+  if(voice){ utter.voice=voice; utter.lang=voice.lang; }else{ utter.lang='en-GB'; }
+  utter.rate=rate; utter.pitch=1; utter.volume=1;
+  let active=true, started=false, watchdog=null;
+  const clear=()=>{ if(watchdog!==null){ clearTimeout(watchdog); watchdog=null; } };
+  const close=()=>{
+    if(!active) return false;
+    active=false; clear();
+    if(activeSpeechStop===stop) activeSpeechStop=null;
+    return true;
+  };
+  const stop=()=>{ active=false; clear(); };
+  const fail=(code)=>{if(close()) onError(code||'speech-failed');};
+  utter.onstart=()=>{
+    if(!active) return;
+    started=true; clear();
+    onStart();
+    // A lost onend must not lock Listen's answer controls forever.
+    watchdog=setTimeout(()=>{try{synth.cancel();}catch(e){} fail('playback-timeout');},Math.max(12000,text.length*250));
+  };
+  utter.onend=()=>{if(close()) onEnd();};
+  utter.onerror=(event)=>fail(event?.error||'speech-failed');
+  activeSpeechStop=stop;
+  try{
+    if(synth.paused) synth.resume();
+    synth.speak(utter);
+    watchdog=setTimeout(()=>{
+      if(active&&!started){ try{synth.cancel();}catch(e){} fail('no-start'); }
+    },6500);
+  }catch(e){ fail('speech-failed'); }
+}
+function setListenControls(enabled,message,isError=false){
   const input=document.getElementById('listenInput');
   const noBtn=document.getElementById('listenDontKnow');
   const checkBtn=document.getElementById('listenCheck');
@@ -1557,26 +1615,30 @@ function setListenControls(enabled, message, isError=false){
   if(status){status.textContent=message||'';status.classList.toggle('listen-error',!!isError);}
 }
 function playListen(){
-  const s=state.session, task=currentTask();
-  if(!s || !task || task.type!=='listen' || s.listenPlayed) return;
-  if(!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance==='undefined'){
-    s.listenError='El navegador no puede reproducir voz en este dispositivo.'; save(); render(); return;
-  }
+  const s=state.session,task=currentTask();
+  if(!s||!task||task.type!=='listen'||s.listenPlayed) return;
   const u=getUnit(task.unitId);
-  const utter=new SpeechSynthesisUtterance(u.en);
-  const voice=chooseEnglishVoice();
-  if(voice){utter.voice=voice;utter.lang=voice.lang;} else utter.lang='en-GB';
-  utter.rate=.92; utter.pitch=1;
-  s.listenPlayed=true; s.listenError=null; save();
+  const isCurrent=()=>state.session===s&&currentTask()===task;
+  s.listenError=null;
   const play=document.getElementById('listenPlay');
-  if(play){play.disabled=true;play.textContent='▶';}
-  setListenControls(false,'Escuchando…');
-  utter.onend=()=>{setListenControls(true,'Escuchado · escribe lo que has oído');};
-  utter.onerror=()=>{
-    s.listenPlayed=false; s.listenError='No se ha podido reproducir el audio. Puedes intentarlo de nuevo.'; save(); render();
-  };
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utter);
+  if(play) play.disabled=true;
+  setListenControls(false,'Preparando voz…');
+  speakEnglish(u.en,.92,{
+    onStart:()=>{
+      if(!isCurrent()) return;
+      s.listenPlayed=true; s.listenError=null; save();
+      setListenControls(false,'Escuchando…');
+    },
+    onEnd:()=>{
+      if(isCurrent()) setListenControls(true,'Escuchado · escribe lo que has oído');
+    },
+    onError:()=>{
+      if(!isCurrent()) return;
+      s.listenPlayed=false;
+      s.listenError='El audio no ha comenzado o se ha interrumpido. Puedes pulsar ▶ para reintentarlo. Comprueba el volumen y la voz inglesa de Android.';
+      save();render();
+    }
+  });
 }
 function listenTask(u){
   const s=state.session, r=s.response, played=!!s.listenPlayed;
@@ -1611,14 +1673,16 @@ function dontKnowListen(){
 }
 
 function playPronounce(){
-  const task=currentTask(); if(!task || task.type!=='pronounce') return;
-  if(!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance==='undefined'){
-    state.session.pronounceError='El navegador no puede reproducir voz en este dispositivo.'; save(); render(); return;
-  }
-  const u=getUnit(task.unitId), utter=new SpeechSynthesisUtterance(u.term), voice=chooseEnglishVoice();
-  if(voice){utter.voice=voice;utter.lang=voice.lang;} else utter.lang='en-GB';
-  utter.rate=.82; utter.pitch=1;
-  window.speechSynthesis.cancel(); window.speechSynthesis.speak(utter);
+  const task=currentTask(),s=state.session;
+  if(!s||!task||task.type!=='pronounce') return;
+  const u=getUnit(task.unitId);
+  speakEnglish(u.term,.82,{
+    onError:()=>{
+      if(state.session!==s||currentTask()!==task) return;
+      s.pronounceError='No se ha podido reproducir la pronunciación. Comprueba el volumen y las voces inglesas de Android.';
+      save();render();
+    }
+  });
 }
 function pronounceMatches(text,target){
   const a=normalizeEnglish(text), t=normalizeEnglish(target);
@@ -2051,6 +2115,11 @@ async function bootstrap(){
   render();
 }
 window.recoverStorageFromBackup=recoverStorageFromBackup;
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./service-worker.js').catch(error=>console.warn('Noma offline no disponible',error));
+  });
+}
 bootstrap();
 
 </script>
