@@ -1,9 +1,10 @@
 // Noma offline app shell. User progress remains in local SQLite/IndexedDB.
-const VERSION='0.20.4-beta.1';
+const VERSION='0.20.5-beta.1';
 const CACHE='noma-app-shell-'+VERSION;
 const SHELL=[
   './', './index.html',
-  './manifest.webmanifest?v='+VERSION,
+  // Preserve the existing manifest URL so installed WebAPKs can track updates.
+  './manifest.webmanifest?v=0.20.4-beta.1',
   './icon-192.png?v='+VERSION, './icon-512.png?v='+VERSION,
   './diagnostico.html', './app-mark.svg', './audio-prueba.html'
 ];
@@ -12,6 +13,8 @@ const SQLITE_ASSETS=[
   'https://cdn.jsdelivr.net/npm/sql.js@1.14.2/dist/sql-wasm.wasm'
 ];
 const CACHEABLE=[...SHELL,...SQLITE_ASSETS];
+const INSTALL_ASSET_PATHS=new Set(['./manifest.webmanifest','./icon-192.png','./icon-512.png']
+  .map(path=>new URL(path,self.registration.scope).pathname));
 const AUDIO_BASE=new URL('./audio/',self.registration.scope).pathname;
 function isAudio(url){
   if(url.origin!==self.location.origin||!url.pathname.startsWith(AUDIO_BASE))return false;
@@ -89,6 +92,21 @@ self.addEventListener('fetch',event=>{
     return;
   }
   if(url.origin!==self.location.origin)return;
+  // Manifest and install icons must not remain locked to old cached designs.
+  // Prefer a fresh response; fall back to caches only when offline.
+  if(INSTALL_ASSET_PATHS.has(url.pathname)){
+    event.respondWith((async()=>{
+      try{
+        const response=await fetch(request,{cache:'no-cache'});
+        if(response.ok){
+          const cache=await caches.open(CACHE);
+          await cache.put(request,response.clone());
+        }
+        return response;
+      }catch(e){return await caches.match(request)||Response.error();}
+    })());
+    return;
+  }
   if(isAudio(url)){
     event.respondWith((async()=>{
       const match=await caches.match(request);
