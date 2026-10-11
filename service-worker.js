@@ -1,5 +1,5 @@
 // Noma offline app shell. User progress remains in local SQLite/IndexedDB.
-const VERSION='0.20.5-beta.1';
+const VERSION='0.20.6-beta.1';
 const CACHE='noma-app-shell-'+VERSION;
 const SHELL=[
   './', './index.html',
@@ -12,7 +12,8 @@ const SQLITE_ASSETS=[
   'https://cdn.jsdelivr.net/npm/sql.js@1.14.2/dist/sql-wasm.min.js',
   'https://cdn.jsdelivr.net/npm/sql.js@1.14.2/dist/sql-wasm.wasm'
 ];
-const CACHEABLE=[...SHELL,...SQLITE_ASSETS];
+// External SQLite resources are cached on first use, never as a condition for installation.
+const CACHEABLE=[...SHELL];
 const INSTALL_ASSET_PATHS=new Set(['./manifest.webmanifest','./icon-192.png','./icon-512.png']
   .map(path=>new URL(path,self.registration.scope).pathname));
 const AUDIO_BASE=new URL('./audio/',self.registration.scope).pathname;
@@ -54,7 +55,12 @@ self.addEventListener('install',(event)=>{
     // Cache individual files; diagnostics report which resources are unavailable.
     const results=await Promise.allSettled(CACHEABLE.map(async path=>{
       const request=new Request(asURL(path),{cache:'reload'});
-      const response=await fetch(request);
+      // One stalled asset must not leave the new Service Worker installing forever.
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),8000);
+      let response;
+      try{response=await fetch(request,{signal:controller.signal});}
+      finally{clearTimeout(timer);}
       if(!response.ok)throw new Error(path+': HTTP '+response.status);
       await cache.put(request,response);
     }));
@@ -122,8 +128,10 @@ self.addEventListener('fetch',event=>{
   }
   if(request.mode==='navigate'){
     event.respondWith((async()=>{
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),6500);
       try{
-        const response=await fetch(request);
+        const response=await fetch(request,{signal:controller.signal});
         const shellRoot=new URL('./',self.registration.scope).pathname;
         const shellIndex=new URL('./index.html',self.registration.scope).pathname;
         if(response.ok&&!response.redirected&&(url.pathname===shellRoot||url.pathname===shellIndex)){
@@ -132,8 +140,15 @@ self.addEventListener('fetch',event=>{
         }
         return response;
       }catch(e){
-        return await caches.match(request) || await caches.match(asURL('./index.html'))
-          || await caches.match(asURL('./')) || Response.error();
+        const backup=await caches.match(request)
+          || await caches.match(asURL('./index.html'))
+          || await caches.match(asURL('./'));
+        if(backup)return backup;
+        // A usable error is better than an indefinitely stalled Android splash.
+        return new Response('<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Noma · reconectar</title><body style="font:16px system-ui;background:#f5f3ee;color:#1f4d3b;padding:32px 18px"><h1>Noma no ha podido cargar</h1><p>Comprueba la conexión a Internet y vuelve a intentarlo. No se han borrado tus datos.</p><p><a href="./" style="color:#1f4d3b;font-weight:bold">Reintentar</a></p></body></html>',
+          {status:503,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
+      }finally{
+        clearTimeout(timer);
       }
     })());
     return;
