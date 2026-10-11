@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.20.5-beta.1 — Icono Android PWA
+- El icono de instalación continúa siendo el símbolo de hojas y sol, sin letra N.
+- Se cambian las URL de los iconos del manifiesto para que Chrome detecte una actualización de identidad de la PWA.
+- Se añade `maskable` al icono de 512 px para adaptarse al icono Android.
+- Manifiesto e iconos pasan a preferir red sobre caché y a revalidarse desde Vercel.
+- Se mantiene la URL del manifiesto, el identificador de la app y la URL de inicio.
+- Se añade vista previa del icono en el diagnóstico PWA.
+- Sin cambios en SQLite/IndexedDB, contenido, seguimiento de progreso ni audio.
+
 ## 0.20.0-beta.2
 - Word, Sentence and Combined sessions now default to **10 exercises** instead of 4.
 - Added a visible **Terminar** action during those practice sessions.
