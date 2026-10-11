@@ -301,7 +301,7 @@ button { cursor: pointer; }
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.20.6-beta.1';
+const APP_VERSION = '0.20.7-beta.1';
 const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
@@ -1129,9 +1129,6 @@ function shuffleTasks(items){
   }
   return a;
 }
-function availableForPractice(u){
-  return !(u.reviewKind==='forget' && u.dueSession!=null);
-}
 function setPracticeMode(mode){
   if(!['word','sentence','mix'].includes(mode)) return;
   state.practiceMode=mode; save(); render();
@@ -1147,50 +1144,55 @@ const PRACTICE_SESSION_SIZE = 10;
 function buildSession(){
   const mode=state.practiceMode||'mix';
   state.sessionNumber=(state.sessionNumber||0)+1;
-  const due = state.units
+  // Keep a small share of due recalls; don't let future-scheduled recalls
+  // exclude all still-unlearned words and leave a two-item session.
+  const due=state.units
     .filter(u=>dueForMode(u,mode))
     .sort((a,b)=>(a.dueSession-b.dueSession)||((a.lastSeen||0)-(b.lastSeen||0)))
     .slice(0,2);
-
-  const tasks=due.map(u=>({type:'recall', unitId:u.id, reviewKind:u.reviewKind||'verify', reviewMode:u.reviewMode||'word'}));
+  const tasks=due.map(u=>({type:'recall',unitId:u.id,reviewKind:u.reviewKind||'verify',reviewMode:u.reviewMode||'word'}));
   const used=new Set(due.map(u=>u.id));
 
-  const addWords=(count)=>{
-    for(const u of state.units){
-      if(count<=0) break;
-      if(!used.has(u.id) && u.recognition<1 && availableForPractice(u)){
-        tasks.push({type:'word',unitId:u.id}); used.add(u.id); count--;
+  const addSkill=(skill,maxCount)=>{
+    let added=0;
+    const field=skill==='word'?'recognition':'production';
+    // First fresh units, then incomplete units with a deferred review,
+    // and lastly unstable units whose basic skill already has a success.
+    // Ordinary Word/Sentence practice never removes a scheduled recall.
+    for(const stage of ['fresh','deferred','unstable']){
+      for(const u of state.units){
+        if(added>=maxCount || tasks.length>=PRACTICE_SESSION_SIZE)return added;
+        if(used.has(u.id)||u.status==='known')continue;
+        const score=Number(u[field])||0;
+        const eligible=stage==='fresh' ? score<1 && u.dueSession==null
+          : stage==='deferred' ? score<1 && u.dueSession!=null
+          : score>=1 && u.status==='unstable';
+        if(!eligible)continue;
+        tasks.push({type:skill,unitId:u.id});
+        used.add(u.id);
+        added++;
       }
     }
-  };
-  const addSentences=(count)=>{
-    for(const u of state.units){
-      if(count<=0) break;
-      if(!used.has(u.id) && u.production<1 && availableForPractice(u)){
-        tasks.push({type:'sentence',unitId:u.id}); used.add(u.id); count--;
-      }
-    }
+    return added;
   };
 
-  if(mode==='word') addWords(Math.max(0,PRACTICE_SESSION_SIZE-tasks.length));
-  else if(mode==='sentence') addSentences(Math.max(0,PRACTICE_SESSION_SIZE-tasks.length));
-  else {
-    const remaining=Math.max(0,PRACTICE_SESSION_SIZE-tasks.length);
-    const wordTarget=Math.ceil(remaining/2);
-    const sentenceTarget=Math.floor(remaining/2);
-    addWords(wordTarget);
-    addSentences(sentenceTarget);
-    // If one side has run out of unseen items, fill the remaining slots from the other.
-    if(tasks.length<PRACTICE_SESSION_SIZE) addWords(PRACTICE_SESSION_SIZE-tasks.length);
-    if(tasks.length<PRACTICE_SESSION_SIZE) addSentences(PRACTICE_SESSION_SIZE-tasks.length);
+  if(mode==='word'||mode==='sentence'){
+    addSkill(mode,PRACTICE_SESSION_SIZE-tasks.length);
+  }else{
+    const remaining=PRACTICE_SESSION_SIZE-tasks.length;
+    addSkill('word',Math.ceil(remaining/2));
+    addSkill('sentence',Math.floor(remaining/2));
+    // Fill spare places from either skill when the other has fewer units left.
+    if(tasks.length<PRACTICE_SESSION_SIZE)addSkill('word',PRACTICE_SESSION_SIZE-tasks.length);
+    if(tasks.length<PRACTICE_SESSION_SIZE)addSkill('sentence',PRACTICE_SESSION_SIZE-tasks.length);
   }
 
-  const mixed=shuffleTasks(tasks).slice(0,PRACTICE_SESSION_SIZE);
+  const mixed=shuffleTasks(tasks);
   if(!mixed.length){
     state.lastSessionSummary={before:leftCount(),after:leftCount(),strengthened:0,mistakes:0,duration:0};
     state.screen='done'; save(); render(); return;
   }
-  state.session = { number:state.sessionNumber, mode, tasks:mixed, index:0, before:leftCount(), beforeProgress:progressSnapshot(), strengthened:0, mistakes:0, startedAt:Date.now(), response:null, listenPlayed:false, listenError:null };
+  state.session={number:state.sessionNumber,mode,tasks:mixed,index:0,before:leftCount(),beforeProgress:progressSnapshot(),strengthened:0,mistakes:0,startedAt:Date.now(),response:null,listenPlayed:false,listenError:null};
   state.screen='exercise'; save(); render();
   requestAnimationFrame(()=>window.scrollTo(0,0));
 }
@@ -1204,20 +1206,22 @@ function buildListenSession(){
   const tasks=due.map(u=>({type:'listen',unitId:u.id,reviewKind:'forget-listen'}));
   const used=new Set(due.map(u=>u.id));
   const candidates=state.units
-    .filter(u=>!used.has(u.id) && u.listenDueSession==null && (u.lastSessionSeen==null || u.lastSessionSeen<state.sessionNumber-1))
-    .sort((a,b)=>(a.listenAttempts||0)-(b.listenAttempts||0)||((a.listenLastSeen||0)-(b.listenLastSeen||0)));
+    .filter(u=>!used.has(u.id))
+    .sort((a,b)=>{
+      // Prefer unused and unscheduled audio; only bring a deferred review
+      // forward when it is necessary to reach ten distinct exercises.
+      const scheduled=(u)=>u.listenDueSession!=null?1:0;
+      return scheduled(a)-scheduled(b)
+        ||(a.listenAttempts||0)-(b.listenAttempts||0)
+        ||(a.listenLastSeen||0)-(b.listenLastSeen||0);
+    });
   for(const u of candidates){
-    if(tasks.length>=4) break;
-    tasks.push({type:'listen',unitId:u.id,reviewKind:'listen'}); used.add(u.id);
+    if(tasks.length>=PRACTICE_SESSION_SIZE)break;
+    const review=u.listenDueSession!=null && u.listenDueSession<=state.sessionNumber;
+    tasks.push({type:'listen',unitId:u.id,reviewKind:review?'forget-listen':'listen'});
+    used.add(u.id);
   }
-  // If the recent-session guard leaves too few candidates, fill from any non-pending item.
-  if(tasks.length<4){
-    for(const u of state.units){
-      if(tasks.length>=4) break;
-      if(!used.has(u.id) && u.listenDueSession==null){tasks.push({type:'listen',unitId:u.id,reviewKind:'listen'});used.add(u.id);}
-    }
-  }
-  const mixed=shuffleTasks(tasks).slice(0,4);
+  const mixed=shuffleTasks(tasks);
   if(!mixed.length){
     state.lastSessionSummary={before:leftCount(),after:leftCount(),strengthened:0,mistakes:0,duration:0,mode:'listen'};
     state.screen='done'; save(); render(); return;
@@ -1235,16 +1239,23 @@ function buildPronounceSession(){
     .slice(0,2);
   const tasks=due.map(u=>({type:'pronounce',unitId:u.id,reviewKind:'forget-pronounce'}));
   const used=new Set(due.map(u=>u.id));
-  let candidates=state.units
-    .filter(u=>!used.has(u.id) && u.pronounceDueSession==null && (u.recognition>0 || u.production>0 || u.listenAttempts>0))
-    .sort((a,b)=>(a.pronounceAttempts||0)-(b.pronounceAttempts||0)||((a.pronounceLastSeen||0)-(b.pronounceLastSeen||0)));
-  if(candidates.length<4) candidates=candidates.concat(state.units.filter(u=>!used.has(u.id)&&u.pronounceDueSession==null&&!candidates.includes(u)));
+  const candidates=state.units
+    .filter(u=>!used.has(u.id))
+    .sort((a,b)=>{
+      const rank=(u)=>(u.pronounceDueSession!=null?2:0)
+        +((u.recognition||0)>0||(u.production||0)>0||(u.listenAttempts||0)>0?0:1);
+      return rank(a)-rank(b)
+        ||(a.pronounceAttempts||0)-(b.pronounceAttempts||0)
+        ||(a.pronounceLastSeen||0)-(b.pronounceLastSeen||0);
+    });
   for(const u of candidates){
-    if(tasks.length>=4) break;
-    tasks.push({type:'pronounce',unitId:u.id,reviewKind:'pronounce'}); used.add(u.id);
+    if(tasks.length>=PRACTICE_SESSION_SIZE)break;
+    const review=u.pronounceDueSession!=null && u.pronounceDueSession<=state.sessionNumber;
+    tasks.push({type:'pronounce',unitId:u.id,reviewKind:review?'forget-pronounce':'pronounce'});
+    used.add(u.id);
   }
-  if(!tasks.length){ state.screen='home'; save(); render(); return; }
-  state.session={number:state.sessionNumber,mode:'pronounce',tasks:shuffleTasks(tasks).slice(0,4),index:0,before:leftCount(),beforeProgress:progressSnapshot(),strengthened:0,mistakes:0,startedAt:Date.now(),response:null,listenPlayed:false,listenError:null,pronounceListening:false,pronounceError:null,pronounceFailureRecorded:false};
+  if(!tasks.length){state.screen='home';save();render();return;}
+  state.session={number:state.sessionNumber,mode:'pronounce',tasks:shuffleTasks(tasks),index:0,before:leftCount(),beforeProgress:progressSnapshot(),strengthened:0,mistakes:0,startedAt:Date.now(),response:null,listenPlayed:false,listenError:null,pronounceListening:false,pronounceError:null,pronounceFailureRecorded:false};
   state.screen='exercise'; save(); render(); requestAnimationFrame(()=>window.scrollTo(0,0));
 }
 
@@ -1279,7 +1290,7 @@ function completeSession(early=false){
 }
 function finishSessionEarly(){
   const s=state.session;
-  if(!s || !['word','sentence','mix'].includes(s.mode)) return;
+  if(!s || !['word','sentence','mix','listen','pronounce'].includes(s.mode)) return;
   if(!confirm('¿Terminar la sesión ahora? Todo lo que ya has hecho quedará guardado.')) return;
   completeSession(true);
 }
@@ -1389,14 +1400,14 @@ function home(){
       <button class="primary" onclick="buildSession()">Empezar</button>
     </section>
     <section class="card listen-home-card">
-      <div class="session-title"><strong>Listen Once</strong><span>${dueListen?'con repaso':'4 audios'}</span></div>
+      <div class="session-title"><strong>Listen Once</strong><span>${dueListen?'10 ejercicios · con repaso':'10 audios'}</span></div>
       <p class="listen-home-copy">Escucha una frase una sola vez y escribe exactamente lo que hayas entendido.</p>
       <div class="listen-metric"><span>Comprensión a primera escucha</span><b>${listenStats.pct==null?'—':listenStats.pct+'%'}</b></div>
       ${dueListen?`<div class="session-row"><span>Forget Me listo</span><em>${Math.min(2,dueListen)}</em></div>`:''}
       <button class="secondary" onclick="buildListenSession()">Empezar Listen Once</button>
     </section>
     <section class="card pronounce-home-card">
-      <div class="session-title"><strong>Pronounce</strong><span>${duePronounce?'con repaso':'4 palabras'}</span></div>
+      <div class="session-title"><strong>Pronounce</strong><span>${duePronounce?'10 ejercicios · con repaso':'10 palabras'}</span></div>
       <p class="pronounce-home-copy">Escucha una palabra, repítela y comprueba si el reconocimiento de voz la entiende.</p>
       <div class="pronounce-metric"><span>Reconocido a la primera</span><b>${pronounceStats.pct==null?'—':pronounceStats.pct+'%'}</b></div>
       ${duePronounce?`<div class="session-row"><span>Pronounce pendiente</span><em>${Math.min(2,duePronounce)}</em></div>`:''}
@@ -1421,7 +1432,7 @@ function exercise(){
   if(task.type==='recall') body=recallTask(u);
   if(task.type==='listen') body=listenTask(u);
   if(task.type==='pronounce') body=pronounceTask(u);
-  const canFinish=['word','sentence','mix'].includes(s.mode);
+  const canFinish=['word','sentence','mix','listen','pronounce'].includes(s.mode);
   return `<div class="exercise-wrap"><div class="exercise-head"><button class="back" onclick="go('home')">←</button><div class="step-track"><div style="width:${progress}%"></div></div><div class="step-count">${idx}/${n}</div>${canFinish?'<button class="finish-session" onclick="finishSessionEarly()">Terminar</button>':''}</div><div class="exercise-main">${body}</div></div>`;
 }
 
@@ -1905,7 +1916,7 @@ function done(){
   const note=practice
     ? (changed?'El avance se muestra por separado para que puedas ver qué parte ha mejorado.':'Has reforzado contenido ya abierto, pero no has añadido una unidad nueva a Word o Sentence.')
     : 'Esta sesión refuerza una habilidad separada y no cambia los contadores de Word o Sentence.';
-  const sessionLine=practice && Number.isFinite(x.completed) && Number.isFinite(x.planned)
+  const sessionLine=Number.isFinite(x.completed) && Number.isFinite(x.planned)
     ? '<p><b>'+x.completed+' de '+x.planned+'</b> ejercicios hechos'+(x.endedEarly?' · sesión terminada antes':'')+'.</p>'
     : '';
   return renderTop()+'<section class="done"><h1>Done.</h1><p>'+x.strengthened+' elementos reforzados.<br>'+(x.mistakes?x.mistakes+' necesitan más tiempo.':'Nada pendiente de esta sesión.')+'</p>'+sessionLine+progressBlock+'<p>'+note+'</p><button class="primary" onclick="go(\'home\')">Volver a inicio</button></section>';
