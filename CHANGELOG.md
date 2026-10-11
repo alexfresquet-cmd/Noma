@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.20.7-beta.1 — Sesiones completas
+- Corregida la selección de Word: antes el plan podía quedarse en solo dos repasos porque las unidades con recuperación futura se excluían de la práctica.
+- Word y Sentence completan diez ejercicios siempre que queden suficientes habilidades pendientes; Combinado respeta la variedad y no repite unidades en la misma sesión.
+- Los repasos posteriores se conservan aunque una unidad se vuelva a practicar antes.
+- Listen Once y Pronounce pasan de cuatro a diez ejercicios y permiten terminar antes.
+- El resumen final muestra realizados y planificados en todos los modos.
+- Se incorporan pruebas de regresión de sesiones con 23 unidades superadas, repasos diferidos y pack casi completo.
+- Sin cambios de esquema SQLite, IDs del pack ni reinicio de progreso.
+
 ## 0.20.6-beta.1 — Recovery de arranque Android
 - El Service Worker ya no espera a recursos CDN de SQLite durante la instalación.
 - Las solicitudes de instalación y navegación tienen tiempos máximos; al fallar, se utiliza el HTML offline cacheado o una página de reintento visible.
