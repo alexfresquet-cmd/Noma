@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.6-beta.1 — Recovery de arranque Android
+- El Service Worker ya no espera a recursos CDN de SQLite durante la instalación.
+- Las solicitudes de instalación y navegación tienen tiempos máximos; al fallar, se utiliza el HTML offline cacheado o una página de reintento visible.
+- No se cambia el identificador PWA, la URL de instalación, los datos SQLite/IndexedDB ni los contenidos.
+- La causa del bloqueo del splash de Android aún debe verificarse en el teléfono.
+
 ## 0.20.5-beta.1 — Icono Android PWA
 - El icono de instalación continúa siendo el símbolo de hojas y sol, sin letra N.
 - Se cambian las URL de los iconos del manifiesto para que Chrome detecte una actualización de identidad de la PWA.
