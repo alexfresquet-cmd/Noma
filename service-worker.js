@@ -1,5 +1,5 @@
 // Noma offline app shell. User progress remains in local SQLite/IndexedDB.
-const VERSION='0.20.9-beta.1';
+const VERSION='0.20.10-beta.1';
 const CACHE='noma-app-shell-'+VERSION;
 const SHELL=[
   './', './index.html',
