@@ -1368,6 +1368,7 @@ function buildSession(){
 }
 
 function buildListenSession(){
+  if(state.activePackId!=='everyday')return;
   state.sessionNumber=(state.sessionNumber||0)+1;
   const due=state.units
     .filter(u=>u.listenDueSession!=null && u.listenDueSession<=state.sessionNumber)
@@ -1402,6 +1403,7 @@ function buildListenSession(){
 }
 
 function buildPronounceSession(){
+  if(state.activePackId!=='everyday')return;
   state.sessionNumber=(state.sessionNumber||0)+1;
   const due=state.units
     .filter(u=>u.pronounceDueSession!=null && u.pronounceDueSession<=state.sessionNumber)
@@ -1553,6 +1555,7 @@ function home(){
   }[mode];
   const relevantDue=mode==='word'?dueWord:mode==='sentence'?dueSentence:(dueWord+dueSentence);
   return `${renderTop()}
+    <div class="active-pack-strip"><div><span>Paquete activo</span><b>${escapeHtml(activePack().name)}</b></div><button type="button" onclick="go('pack')">Cambiar</button></div>
     <section class="hero"><div class="eyebrow">Word + Sentence</div><div class="big-number">${learned}<span>/ ${PACK_SIZE} consolidadas</span></div><div class="substat">${wordDone}/${PACK_SIZE} Word · ${sentenceDone}/${PACK_SIZE} Sentence · ${forget} en Forget Me</div><div class="progress-line"><div style="width:${pct}%"></div></div></section>
     <section class="card session-card">
       <div class="session-title"><strong>Practicar</strong><span>${relevantDue?'hasta 10 · con repasos':'hasta 10 ejercicios'}</span></div>
@@ -1569,7 +1572,7 @@ function home(){
       ${relevantDue?`<div class="session-row"><span>Forget Me listo</span><em>${Math.min(2,relevantDue)}</em></div>`:''}
       <button class="primary" onclick="buildSession()">Empezar</button>
     </section>
-    <section class="card listen-home-card">
+    ${state.activePackId==='everyday'?`<section class="card listen-home-card">
       <div class="session-title"><strong>Listen Once</strong><span>${dueListen?'10 ejercicios · con repaso':'10 audios'}</span></div>
       <p class="listen-home-copy">Escucha una frase una sola vez y escribe exactamente lo que hayas entendido.</p>
       <div class="listen-metric"><span>Comprensión a primera escucha</span><b>${listenStats.pct==null?'—':listenStats.pct+'%'}</b></div>
@@ -1587,7 +1590,7 @@ function home(){
       <div class="session-title"><strong>Tiny Reader</strong><span>${READER_TEXTS.length} textos · 6 preguntas</span></div>
       <p class="reader-home-copy">Lecturas breves del pack Everyday English. El texto es fijo y las preguntas tienen una respuesta inequívoca.</p>
       <button class="secondary" onclick="go('readerLibrary')">Abrir Tiny Reader</button>
-    </section>
+    </section>`:`<p class="note">Listen Once, Pronounce y Tiny Reader estarán disponibles cuando este paquete tenga sus propios audios y lecturas. Word, Sentence y Combinado ya funcionan.</p>`}
     ${forget ? `<button class="forget-summary" onclick="go('forget')"><span><b>${forget}</b> en Forget Me</span><em>Ver pendientes →</em></button>` : ''}
     <p class="note">Intro corrige, pero nunca salta al ejercicio siguiente. Noma mantiene el resultado en pantalla hasta que tú pulses Siguiente.</p>
     ${renderNav('home')}`;
