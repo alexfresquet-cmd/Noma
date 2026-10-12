@@ -7,6 +7,7 @@ on:
       - index.html
       - tests/session-planning.test.cjs
       - tests/progress-isolation.test.cjs
+      - tests/backup-export.test.cjs
       - .github/workflows/session-tests.yml
   workflow_dispatch:
 
