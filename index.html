@@ -829,6 +829,8 @@ const READER_TEXTS = [
 
 function initialState(){
   return {
+    activePackId:baseUnits===EVERYDAY_UNITS?'everyday':'conversation',
+    packStates:{},
     units: baseUnits.map(u => ({...u, status:'new', recognition:0, production:0, recall:0, mistakes:0, unstableModes:[], due:false, dueSession:null, reviewKind:null, reviewMode:null, lastSeen:null, lastSessionSeen:null, listenAttempts:0, listenCorrect:0, listenMistakes:0, listenFirstResult:null, listenDueSession:null, listenLastSeen:null, listenLastSessionSeen:null, pronounceAttempts:0, pronounceCorrect:0, pronounceMistakes:0, pronounceFirstResult:null, pronounceDueSession:null, pronounceLastSeen:null, pronounceLastSessionSeen:null})),
     screen:'home',
     sessionNumber: 0,
@@ -961,7 +963,7 @@ function localCandidate(){
     const emergencyRaw=localStorage.getItem(EMERGENCY_STORAGE_KEY);
     if(emergencyRaw){
       const envelope=JSON.parse(emergencyRaw);
-      if(envelope?.state?.units?.length===PACK_SIZE){
+      if(isStoredStateValid(envelope?.state)){
         return {state:envelope.state,updatedAt:Number(envelope.updatedAt)||0,source:'emergency'};
       }
     }
@@ -970,7 +972,7 @@ function localCandidate(){
     const legacyRaw=localStorage.getItem(STORAGE_KEY);
     if(legacyRaw){
       const legacy=JSON.parse(legacyRaw);
-      if(legacy?.units?.length===PACK_SIZE) return {state:legacy,updatedAt:0,source:'legacy'};
+      if(isStoredStateValid(legacy)) return {state:legacy,updatedAt:0,source:'legacy'};
     }
   }catch(e){}
   return null;
@@ -991,7 +993,7 @@ const Storage = {
       if(dbRecord?.payload){
         try{ dbState=JSON.parse(dbRecord.payload); }catch(e){}
       }
-      const dbCandidate=dbState?.units?.length===PACK_SIZE
+      const dbCandidate=isStoredStateValid(dbState)
         ? {state:dbState,updatedAt:Number(dbRecord.updatedAt)||0,source:'sqlite'}
         : null;
       const chosen=local && (!dbCandidate || local.updatedAt>dbCandidate.updatedAt) ? local : dbCandidate;
@@ -1042,10 +1044,17 @@ function persistenceLabel(){
 let state = null;
 async function load(){
   const x=await Storage.load();
-  if(x?.units?.length===PACK_SIZE) return migrateState(x);
+  if(x){
+    if(!isStoredStateValid(x))throw new Error('El paquete guardado no coincide con el catálogo. No se modificará tu progreso.');
+    selectPackContent(x.activePackId||'everyday');
+    return migrateState(x);
+  }
+  selectPackContent('everyday');
   return initialState();
 }
 function migrateState(x){
+  x.activePackId=x.activePackId||'everyday';
+  x.packStates=x.packStates&&typeof x.packStates==='object'&&!Array.isArray(x.packStates)?x.packStates:{};
   x.schemaVersion = Number.isFinite(x.schemaVersion) ? x.schemaVersion : 1;
   x.sessionNumber = Number.isFinite(x.sessionNumber) ? x.sessionNumber : 0;
   x.practiceMode = ['word','sentence','mix'].includes(x.practiceMode) ? x.practiceMode : 'mix';
