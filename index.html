@@ -301,7 +301,7 @@ button { cursor: pointer; }
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.20.7-beta.1';
+const APP_VERSION = '0.20.8-beta.1';
 const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
@@ -700,7 +700,7 @@ const READER_TEXTS = [
 
 function initialState(){
   return {
-    units: baseUnits.map(u => ({...u, status:'new', recognition:0, production:0, recall:0, mistakes:0, due:false, dueSession:null, reviewKind:null, reviewMode:null, lastSeen:null, lastSessionSeen:null, listenAttempts:0, listenCorrect:0, listenMistakes:0, listenFirstResult:null, listenDueSession:null, listenLastSeen:null, listenLastSessionSeen:null, pronounceAttempts:0, pronounceCorrect:0, pronounceMistakes:0, pronounceFirstResult:null, pronounceDueSession:null, pronounceLastSeen:null, pronounceLastSessionSeen:null})),
+    units: baseUnits.map(u => ({...u, status:'new', recognition:0, production:0, recall:0, mistakes:0, unstableModes:[], due:false, dueSession:null, reviewKind:null, reviewMode:null, lastSeen:null, lastSessionSeen:null, listenAttempts:0, listenCorrect:0, listenMistakes:0, listenFirstResult:null, listenDueSession:null, listenLastSeen:null, listenLastSessionSeen:null, pronounceAttempts:0, pronounceCorrect:0, pronounceMistakes:0, pronounceFirstResult:null, pronounceDueSession:null, pronounceLastSeen:null, pronounceLastSessionSeen:null})),
     screen:'home',
     sessionNumber: 0,
     session: null,
@@ -926,13 +926,18 @@ function migrateState(x){
     let dueSession = Number.isFinite(u.dueSession) ? u.dueSession : (u.due ? x.sessionNumber + 1 : null);
     let reviewKind = u.reviewKind || (u.due || u.status==='unstable' ? 'forget' : null);
     let reviewMode = u.reviewMode || 'word';
+    // Legacy data only recorded the last failed mode; preserve that indication
+    // and keep independent stability flags from newly saved sessions.
+    const unstableModes=Array.isArray(u.unstableModes)
+      ? [...new Set(u.unstableModes.filter(mode=>mode==='word'||mode==='sentence'))]
+      : (u.status==='unstable'?[reviewMode]:[]);
     // Units successfully introduced in v0.1 had no delayed recall at all.
     // Queue them gradually instead of replaying their sentence every session.
     if(dueSession==null && u.status==='learning' && (u.recognition||0)>=1 && (u.production||0)>=1 && (u.recall||0)<1){
       dueSession=x.sessionNumber+2;
       reviewKind='verify';
     }
-    return {...u,...canonical,dueSession,reviewKind,reviewMode,lastSessionSeen:Number.isFinite(u.lastSessionSeen)?u.lastSessionSeen:null,
+    return {...u,...canonical,dueSession,reviewKind,reviewMode,unstableModes,lastSessionSeen:Number.isFinite(u.lastSessionSeen)?u.lastSessionSeen:null,
       listenAttempts:Number.isFinite(u.listenAttempts)?u.listenAttempts:0,
       listenCorrect:Number.isFinite(u.listenCorrect)?u.listenCorrect:0,
       listenMistakes:Number.isFinite(u.listenMistakes)?u.listenMistakes:0,
@@ -962,9 +967,17 @@ function escapeHtml(s=''){return s.replace(/[&<>"]/g, m=>({'&':'&amp;','<':'&lt;
 function knownCount(){ return state.units.filter(u=>u.status==='known').length; }
 // Practice progress is tracked separately for Word and Sentence.
 // "Combined" means the same pack unit has evidence in both modes.
-function wordProgressCount(){ return state.units.filter(u=>(u.recognition||0)>=1 && u.status!=='unstable').length; }
-function sentenceProgressCount(){ return state.units.filter(u=>(u.production||0)>=1 && u.status!=='unstable').length; }
-function combinedProgressCount(){ return state.units.filter(u=>(u.recognition||0)>=1 && (u.production||0)>=1 && u.status!=='unstable').length; }
+function skillUnstable(u,mode){return (u.unstableModes||[]).includes(mode);}
+function wordProgressCount(){
+  return state.units.filter(u=>(u.recognition||0)>=1 && !skillUnstable(u,'word')).length;
+}
+function sentenceProgressCount(){
+  return state.units.filter(u=>(u.production||0)>=1 && !skillUnstable(u,'sentence')).length;
+}
+function combinedProgressCount(){
+  return state.units.filter(u=>(u.recognition||0)>=1 && (u.production||0)>=1
+    && !skillUnstable(u,'word') && !skillUnstable(u,'sentence')).length;
+}
 function learnedCount(){ return combinedProgressCount(); }
 function modeProgressCount(mode=state.practiceMode||'mix'){
   if(mode==='word') return wordProgressCount();
@@ -1033,9 +1046,12 @@ function observedWrongCount(){ return wrongEntries().filter(e=>!e.resolvedAt&&(e
 function resolvedWrongCount(){ return wrongEntries().filter(e=>!!e.resolvedAt).length; }
 
 function maybeKnown(u){
-  if(u.recognition>=1 && u.production>=1 && u.recall>=1){
+  // Both skills must be stable for full consolidation.
+  if((u.unstableModes||[]).length){
+    u.status='unstable';
+  }else if(u.recognition>=1 && u.production>=1 && u.recall>=1){
     u.status='known'; u.due=false; u.dueSession=null; u.reviewKind=null;
-  } else if(u.status!=='unstable') {
+  }else{
     u.status='learning';
   }
 }
@@ -1049,6 +1065,8 @@ function scheduleReview(u, delay, kind, mode){
 }
 function markFailure(u, mode='word'){
   u.mistakes++;
+  u.unstableModes=u.unstableModes||[];
+  if(!u.unstableModes.includes(mode))u.unstableModes.push(mode);
   u.status='unstable';
   u.lastSeen=Date.now();
   u.lastSessionSeen=state.sessionNumber||0;
@@ -1056,13 +1074,22 @@ function markFailure(u, mode='word'){
   // First miss gets breathing room; repeated misses can return next session.
   scheduleReview(u, u.mistakes>=2 ? 1 : 2, 'forget', mode);
 }
-function markSuccess(u, kind){
+function markSuccess(u, kind, reviewedMode=null){
   u[kind] = (u[kind]||0)+1;
   u.lastSeen=Date.now();
   u.lastSessionSeen=state.sessionNumber||0;
   if(kind==='recall'){
-    u.due=false; u.dueSession=null; u.reviewKind=null; u.reviewMode=null;
-    if(u.status==='unstable') u.status='learning';
+    // Recall clears only the evaluated skill.
+    u.unstableModes=(u.unstableModes||[]).filter(mode=>mode!==reviewedMode);
+    if(u.unstableModes.length){
+      // Retain a review for the other unstable skill.
+      u.due=true;
+      u.reviewKind='forget';
+      u.reviewMode=u.unstableModes[0];
+      u.dueSession=(state.sessionNumber||0)+1;
+    }else{
+      u.due=false; u.dueSession=null; u.reviewKind=null; u.reviewMode=null;
+    }
   }
   maybeKnown(u);
   // Production is verified later with a separate word recall, not by repeating the same sentence.
@@ -1116,7 +1143,7 @@ function markPronounceFailure(u){
 }
 
 function snapshotUnit(u){
-  return {status:u.status,recognition:u.recognition,production:u.production,recall:u.recall,mistakes:u.mistakes,due:u.due,dueSession:u.dueSession,reviewKind:u.reviewKind,reviewMode:u.reviewMode,lastSeen:u.lastSeen,lastSessionSeen:u.lastSessionSeen};
+  return {status:u.status,recognition:u.recognition,production:u.production,recall:u.recall,mistakes:u.mistakes,unstableModes:[...(u.unstableModes||[])],due:u.due,dueSession:u.dueSession,reviewKind:u.reviewKind,reviewMode:u.reviewMode,lastSeen:u.lastSeen,lastSessionSeen:u.lastSessionSeen};
 }
 function restoreUnit(u,snap){ Object.assign(u,snap); }
 function getUnit(id){ return state.units.find(u=>u.id===id); }
@@ -1595,7 +1622,7 @@ function checkRecall(){
     // an item first failed in Word/Sentence could remain permanently in "left".
     if(mode==='word' && (u.recognition||0)<1) u.recognition=1;
     if(mode==='sentence' && (u.production||0)<1) u.production=1;
-    markSuccess(u,'recall'); recordRight(u,mode);
+    markSuccess(u,'recall',mode); recordRight(u,mode);
     const pattern=state.wrongBook?.[wrongKey(u,mode)];
     if(pattern && !pattern.resolvedAt && (pattern.failures||0)>=2) scheduleReview(u,3,'verify',mode);
     s.strengthened++;
@@ -2192,7 +2219,7 @@ async function importBackup(event){
 }
 
 function seedForgetMe(){
-  state.units.slice(0,3).forEach((u,i)=>{u.status='unstable';u.due=true;u.dueSession=(state.sessionNumber||0)+1+i;u.reviewKind='forget';u.reviewMode=i%2?'sentence':'word';u.mistakes=Math.max(1,u.mistakes);u.recognition=Math.max(1,u.recognition);}); save(); render();
+  state.units.slice(0,3).forEach((u,i)=>{u.status='unstable';u.due=true;u.dueSession=(state.sessionNumber||0)+1+i;u.reviewKind='forget';u.reviewMode=i%2?'sentence':'word';u.unstableModes=[u.reviewMode];u.mistakes=Math.max(1,u.mistakes);u.recognition=Math.max(1,u.recognition);}); save(); render();
 }
 function resetDemo(){ if(confirm('¿Reiniciar todo el progreso de la Beta?')){state=initialState();save();render();} }
 
