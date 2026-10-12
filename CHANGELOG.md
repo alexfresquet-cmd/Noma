@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.21.0-beta.1 — Paquetes independientes (beta)
+- Se conserva Everyday English con sus 100 unidades y progreso existente.
+- Natural Conversations se incorpora como segundo paquete con 30 expresiones y ejercicios Word, Sentence y Combinado.
+- Nuevo catálogo con selector en Pack y progreso independiente en cada paquete: repasos, errores, conteos y estado de aprendizaje.
+- Travel & Situations, Phrasal Verbs, Work & Meetings, Technology, MES/IT/AI/Pharma, Soccer y Sports General figuran en preparación, todavía no activables.
+- Migración de estado versión 5: identificador del pack activo y estados guardados de los packs inactivos, sin cambiar estructura SQLite.
+- Copias de seguridad JSON versión 2 incluyendo todos los paquetes; compatibles con exportaciones versión 1.
+- Audio y Tiny Reader solo disponibles para Everyday, evitando reproducir recursos de otro paquete.
+- Tests de regresión para cambios de paquete, reinicio, copias y protección del progreso antiguo.
+- Alcance y pruebas de aceptación documentados en docs/MULTIPACK_BETA2.md.
+
 ## 0.20.10-beta.1 — Verificación real de copia
 - Se distingue «Descarga solicitada» de «Copia verificada».
 - La confirmación exige volver a abrir el archivo JSON guardado mediante el selector de archivos de Android; verifica su estructura y que corresponde a la última exportación.
