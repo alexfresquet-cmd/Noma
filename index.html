@@ -2212,9 +2212,29 @@ function forgetMe(){
 }
 
 function pack(){
-  return `${renderTop()}<h1 class="section-title">Everyday English</h1><p class="section-sub">La Beta usa un pack finito de ${PACK_SIZE} unidades frecuentes. No hay otro pack activo.</p><div class="card"><div class="session-title"><strong>${combinedProgressCount()} / ${PACK_SIZE}</strong><span>Word + Sentence</span></div><div class="progress-line"><div style="width:${combinedProgressCount()}%"></div></div><p class="note" style="margin-bottom:0">Word y Sentence tienen progreso independiente. El total solo cuenta una unidad cuando ambos modos están superados; la memoria confirmada se mide aparte.</p><div class="session-row" style="margin-top:16px"><span>Word</span><em>${wordProgressCount()}/${PACK_SIZE}</em></div><div class="session-row"><span>Sentence</span><em>${sentenceProgressCount()}/${PACK_SIZE}</em></div></div><div class="list"><div class="list-item"><span>Pack activo</span><span>Everyday English</span></div><div class="list-item"><span>Tamaño</span><span>${PACK_SIZE}</span></div><div class="list-item"><span>Otros packs</span><span>No disponibles en Beta 1</span></div></div>${renderNav('pack')}`;
+  const list=PACK_CATALOG.map(p=>{
+    const isActive=p.id===state.activePackId;
+    const saved=isActive?state:state.packStates?.[p.id];
+    const units=isPackSnapshotValid(p.id,saved)?saved.units:[];
+    const size=p.units?.length||0;
+    const word=units.filter(u=>u.recognition>=1&&!(u.unstableModes||[]).includes('word')).length;
+    const sentence=units.filter(u=>u.production>=1&&!(u.unstableModes||[]).includes('sentence')).length;
+    const both=units.filter(u=>u.recognition>=1&&u.production>=1
+      &&!(u.unstableModes||[]).includes('word')&&!(u.unstableModes||[]).includes('sentence')).length;
+    let html='<article class="pack-option'+(isActive?' selected':'')+'"><div class="pack-option-head"><div><h2>'+escapeHtml(p.name)+'</h2><p>'+escapeHtml(p.description)+'</p></div><span class="pack-option-label">'+(size?size+' unidades':'Próximamente')+'</span></div>';
+    if(size)html+='<div class="progress-line"><div style="width:'+Math.round(both/size*100)+'%"></div></div><div class="session-row"><span>Word '+word+'/'+size+'</span><em>Sentence '+sentence+'/'+size+' · Ambas '+both+'/'+size+'</em></div>';
+    html+='<button type="button" '+(isActive||!size?'disabled':'')+' onclick="switchPack(&quot;'+p.id+'&quot;)">'+(!size?'En preparación':isActive?'En uso':'Usar paquete')+'</button></article>';
+    return html;
+  }).join('');
+  return renderTop()+'<h1 class="section-title">Paquetes</h1><p class="section-sub">Puedes cambiar de paquete sin perder lo aprendido. Cada uno mantiene sus propios ejercicios, repasos y errores.</p>'
+    +'<section class="card"><div class="eyebrow">Paquete activo</div><div class="session-title"><strong>'+escapeHtml(activePack().name)+'</strong><span>'+PACK_SIZE+' unidades</span></div>'
+    +'<div class="session-row" style="margin-top:16px"><span>Word</span><em>'+wordProgressCount()+'/'+PACK_SIZE+'</em></div>'
+    +'<div class="session-row"><span>Sentence</span><em>'+sentenceProgressCount()+'/'+PACK_SIZE+'</em></div>'
+    +'<div class="session-row"><span>Ambas</span><em>'+combinedProgressCount()+'/'+PACK_SIZE+'</em></div></section>'
+    +'<section class="pack-catalog">'+list+'</section>'
+    +'<p class="note">Los packs en preparación no pueden seleccionarse todavía. Las copias incluyen el progreso de todos los paquetes iniciados.</p>'
+    +renderNav('pack');
 }
-
 
 function readerText(id){ return READER_TEXTS.find(t=>t.id===id); }
 function readerStatus(id){
