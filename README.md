@@ -42,14 +42,14 @@ The audit and all content changes are documented in:
 
 ## Beta status
 
-**0.20.0-beta.2** is the current closed Beta build.
+**0.21.0-beta.1** is the current multipack beta. Everyday English remains unchanged; Natural Conversations is available as a 30-unit editorial validation pack.
 
-The counter model from v0.19 remains intentionally unchanged unless real usage gives us evidence to revise it. Speak 15, Travel Pack, placement testing and additional packs remain out of scope for this Beta.
+The counter model from v0.19 remains intentionally unchanged unless real usage gives us evidence to revise it. Travel & Situations, Phrasal Verbs, Work & Meetings, Technology, MES/IT/AI/Pharma, Soccer and Sports General are catalog entries awaiting editorial validation; they are not selectable or presented as completed lessons.
 
 
 ## Session length
 
-Word, Sentence and Combined practice now plan **up to 10 exercises per session**. A visible **Terminar** action lets the learner stop at any point; completed answers are kept and unfinished items are not penalised. Listen Once and Pronounce remain at 4 items for now.
+Word, Sentence, Combined, Listen Once and Pronounce plan **up to 10 exercises per session** when resources are available. A visible **Terminar** action lets the learner stop early. The new conversation pack currently supports text practice only, until its audio and readings are prepared.
 
 ## Vercel / Android PWA (0.20.1-beta.1)
 
@@ -95,3 +95,13 @@ Noma uses 200 recorded synthetic MP3 clips from the 100 audited unit IDs (100 Li
 - `/audio-prueba.html` compara seis frases con Kokoro-82M, voces `bf_emma` y `af_heart`. Los archivos se generan una sola vez en GitHub Actions, nunca con datos del usuario.
 - Kokoro y sus pesos están publicados bajo Apache-2.0: https://huggingface.co/hexgrad/Kokoro-82M
 - No activar el audio nuevo para las sesiones de aprendizaje antes de validar que se escucha y que el usuario prefiere su naturalidad. Los 200 archivos previos de respaldo permanecen.
+
+## Multipack beta (0.21.0)
+
+- **Everyday English:** stable original 100 IDs, all previous modes and progress intact.
+- **Natural Conversations:** 30 editorial pilot units, Word, Sentence, Combined and Forget Me.
+- Seven further packs in the catalog as visibly unavailable pending content review.
+- `activePackId` and `packStates` isolate state for each pack within existing local SQLite storage; emergency mirror also includes all packs.
+- Backup JSON version 2 includes all pack progress; version 1 Everyday backups are still accepted on import.
+- No cloud sync, account, new storage backend or automatic migration of individual IDs across packs.
+- Details, limitations and required Android acceptance tests: [Multipack Beta 2](docs/MULTIPACK_BETA2.md).
