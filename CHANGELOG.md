@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.10-beta.1 — Verificación real de copia
+- Se distingue «Descarga solicitada» de «Copia verificada».
+- La confirmación exige volver a abrir el archivo JSON guardado mediante el selector de archivos de Android; verifica su estructura y que corresponde a la última exportación.
+- Se añade «Verificar copia» en Progreso para comprobar el archivo incluso después de cerrar el aviso o reiniciar Noma.
+- El estado de verificación se guarda localmente sin importar el JSON ni modificar resultados de aprendizaje.
+- Los archivos anteriores y las copias inválidas se identifican por separado.
+- Pruebas de regresión para comprobación válida, archivo anterior, corrupto y verificación tras reiniciar.
+
 ## 0.20.9-beta.1 — Confirmación de copia de seguridad
 - Tras solicitar una exportación, Noma presenta un diálogo claro con el nombre del archivo y la indicación de comprobarlo en Descargas.
 - La web no puede verificar que Android haya guardado el archivo: la interfaz comunica una descarga solicitada, no un guardado confirmado.
