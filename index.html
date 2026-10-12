@@ -1384,7 +1384,7 @@ function buildSession(){
 }
 
 function buildListenSession(){
-  if(state.activePackId!=='everyday')return;
+  if((state.activePackId||'everyday')!=='everyday')return;
   state.sessionNumber=(state.sessionNumber||0)+1;
   const due=state.units
     .filter(u=>u.listenDueSession!=null && u.listenDueSession<=state.sessionNumber)
@@ -1419,7 +1419,7 @@ function buildListenSession(){
 }
 
 function buildPronounceSession(){
-  if(state.activePackId!=='everyday')return;
+  if((state.activePackId||'everyday')!=='everyday')return;
   state.sessionNumber=(state.sessionNumber||0)+1;
   const due=state.units
     .filter(u=>u.pronounceDueSession!=null && u.pronounceDueSession<=state.sessionNumber)
