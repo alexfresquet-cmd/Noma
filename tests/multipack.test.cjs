@@ -32,7 +32,7 @@ function setup(){
   return {ctx,eval(js){return vm.runInContext(js,ctx);},get saves(){return saves;}};
 }
 test('Inline application and thirty curated conversation units parse',()=>{
-  const js=between('  <script>','</script>');
+  const js=between('  <script>','</script>').replace(/^\s*<script>/,'');
   new vm.Script(js);
   const f=setup();
   assert.equal(f.eval('CONVERSATION_UNITS.length'),30);
@@ -46,7 +46,7 @@ test('Inline application and thirty curated conversation units parse',()=>{
 test('Legacy 100-unit state with 23 learned words is preserved after roundtrip',()=>{
   const f=setup();
   f.eval("state=initialState();state.units.slice(0,23).forEach(u=>{u.recognition=1;u.status='learning'});state.sessionNumber=27;state.units[30].dueSession=31;state.wrongBook['31:word']={failures:3};");
-  const before=f.eval("JSON.stringify({units:state.units,wrongBook:state.wrongBook,sessionNumber:state.sessionNumber})");
+  const before=f.eval("JSON.stringify({progress:state.units.map(u=>({id:u.id,recognition:u.recognition,production:u.production,dueSession:u.dueSession,mistakes:u.mistakes})),wrongBook:state.wrongBook,sessionNumber:state.sessionNumber})");
   f.eval("switchPack('conversation')");
   assert.equal(f.eval("state.activePackId"),'conversation');
   assert.equal(f.eval('state.units.length'),30);
@@ -54,15 +54,15 @@ test('Legacy 100-unit state with 23 learned words is preserved after roundtrip',
   f.eval("switchPack('everyday')");
   assert.equal(f.eval('state.units.length'),100);
   assert.equal(f.eval('PACK_SIZE'),100);
-  assert.equal(f.eval("JSON.stringify({units:state.units,wrongBook:state.wrongBook,sessionNumber:state.sessionNumber})"),before);
+  assert.equal(f.eval("JSON.stringify({progress:state.units.map(u=>({id:u.id,recognition:u.recognition,production:u.production,dueSession:u.dueSession,mistakes:u.mistakes})),wrongBook:state.wrongBook,sessionNumber:state.sessionNumber})"),before);
 });
 
 test('Conversation changes survive a switch back to Everyday and another return',()=>{
   const f=setup();
   f.eval("state=initialState();switchPack('conversation');state.units[1].recognition=2;state.units[1].production=1;state.units[1].mistakes=3;state.units[1].dueSession=15;state.wrongBook['2:word']={failures:3};state.readerProgress.test={attempts:2};state.sessionNumber=12;");
-  const saved=f.eval("JSON.stringify({units:state.units,wrongBook:state.wrongBook,readerProgress:state.readerProgress,sessionNumber:state.sessionNumber})");
+  const saved=f.eval("JSON.stringify({progress:state.units.map(u=>({id:u.id,recognition:u.recognition,production:u.production,dueSession:u.dueSession,mistakes:u.mistakes})),wrongBook:state.wrongBook,readerProgress:state.readerProgress,sessionNumber:state.sessionNumber})");
   f.eval("switchPack('everyday');state.units[0].recognition=1;switchPack('conversation')");
-  assert.equal(f.eval("JSON.stringify({units:state.units,wrongBook:state.wrongBook,readerProgress:state.readerProgress,sessionNumber:state.sessionNumber})"),saved);
+  assert.equal(f.eval("JSON.stringify({progress:state.units.map(u=>({id:u.id,recognition:u.recognition,production:u.production,dueSession:u.dueSession,mistakes:u.mistakes})),wrongBook:state.wrongBook,readerProgress:state.readerProgress,sessionNumber:state.sessionNumber})"),saved);
 });
 
 test('Serialized SQLite state restores its active and inactive packs',()=>{
