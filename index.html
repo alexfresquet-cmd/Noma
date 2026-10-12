@@ -183,7 +183,12 @@ button { cursor: pointer; }
 .backup-dialog-message{font-size:15px;color:var(--muted);line-height:1.5;margin:0}
 .backup-dialog-file{margin:18px 0 0;padding:13px 14px;border:1px solid var(--line);background:var(--bg);border-radius:14px;font-size:13px;font-weight:650;overflow-wrap:anywhere}
 .backup-dialog-file[hidden]{display:none}
-.backup-dialog-action{margin-top:20px}
+.backup-dialog-actions{display:grid;gap:9px;margin-top:20px}
+.backup-dialog-actions .primary,.backup-dialog-actions .secondary{width:100%;min-height:50px}
+.backup-dialog-actions [hidden]{display:none}
+.backup-dialog-panel.is-verified .backup-dialog-mark{background:#e7efe9;color:var(--accent)}
+.backup-dialog-panel.is-pending .backup-dialog-mark{background:var(--soft);color:var(--accent)}
+.backup-dialog-action{margin-top:0}
 
 @media (max-width:380px){ .nav-btn{font-size:11px;} }
 
@@ -317,13 +322,17 @@ button { cursor: pointer; }
       <h2 id="backupDialogTitle" class="backup-dialog-title">Copia preparada</h2>
       <p id="backupDialogMessage" class="backup-dialog-message"></p>
       <div id="backupDialogFile" class="backup-dialog-file" hidden></div>
-      <button id="backupDialogClose" class="primary backup-dialog-action" type="button" onclick="closeBackupDialog()">Entendido</button>
+      <div class="backup-dialog-actions">
+        <button id="backupDialogVerify" class="primary" type="button" onclick="openBackupVerifier()" hidden>Verificar archivo descargado</button>
+        <button id="backupDialogClose" class="secondary backup-dialog-action" type="button" onclick="closeBackupDialog()">Cerrar</button>
+      </div>
     </section>
   </div>
+  <input id="backupVerifyInput" type="file" accept=".json,application/json" hidden onchange="verifyExportedBackup(event)">
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.20.9-beta.1';
+const APP_VERSION = '0.20.10-beta.1';
 const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
@@ -732,6 +741,7 @@ function initialState(){
     readerSession: null,
     wrongBook: {},
     lastBackupAt: null,
+    lastBackupVerifiedAt: null,
     schemaVersion: STATE_SCHEMA_VERSION
   };
 }
@@ -917,7 +927,10 @@ const Storage = {
 
 function backupLabel(){
   if(!state?.lastBackupAt) return 'Última descarga solicitada: ninguna';
-  return 'Última descarga solicitada: '+new Date(state.lastBackupAt).toLocaleDateString();
+  const date=new Date(state.lastBackupAt).toLocaleString();
+  return state.lastBackupVerifiedAt===state.lastBackupAt
+    ? 'Última copia verificada: '+date
+    : 'Última descarga solicitada: '+date+' · pendiente de verificar';
 }
 function persistenceLabel(){
   if(Storage.mode==='sqlite'){
@@ -942,6 +955,7 @@ function migrateState(x){
   x.readerSession = null;
   x.wrongBook = x.wrongBook && typeof x.wrongBook==='object' ? x.wrongBook : {};
   x.lastBackupAt = Number.isFinite(x.lastBackupAt) ? x.lastBackupAt : null;
+  x.lastBackupVerifiedAt = Number.isFinite(x.lastBackupVerifiedAt) ? x.lastBackupVerifiedAt : null;
   if(['reader','readerLibrary'].includes(x.screen)) x.screen='home';
   x.units = x.units.map(u => {
     const canonical=baseUnits.find(item=>item.id===u.id)||u;
@@ -1985,7 +1999,7 @@ function progress(){
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${pronounceStats.pct==null?'—':pronounceStats.pct+'%'}</strong><span>pronounce recognizability</span></div><p class="note" style="margin-bottom:0">${pronounceStats.attempted?`${pronounceStats.correct} de ${pronounceStats.attempted} palabras nuevas reconocidas a la primera.`:'Todavía no has hecho Pronounce.'}</p></div>
     <div class="card" style="margin:14px 0"><div class="session-title"><strong>${Object.values(state.readerProgress||{}).filter(x=>x.attempts>0).length} / ${READER_TEXTS.length}</strong><span>Tiny Reader</span></div><p class="note" style="margin-bottom:0">Textos de prueba completados. Las preguntas de lectura no alteran el contador de palabras.</p></div>
     <div class="list"><div class="list-item"><span>Reconocimiento</span><span>${state.units.reduce((a,u)=>a+u.recognition,0)}</span></div><div class="list-item"><span>Producción</span><span>${state.units.reduce((a,u)=>a+u.production,0)}</span></div><div class="list-item"><span>Recalls superados</span><span>${state.units.reduce((a,u)=>a+u.recall,0)}</span></div><div class="list-item"><span>Errores recurrentes</span><span>${recurrentWrongCount()}</span></div><div class="list-item"><span>Errores resueltos</span><span>${resolvedWrongCount()}</span></div><div class="list-item"><span>Listen Once correctos</span><span>${state.units.reduce((a,u)=>a+(u.listenCorrect||0),0)}</span></div><div class="list-item"><span>Pronounce reconocidos</span><span>${state.units.reduce((a,u)=>a+(u.pronounceCorrect||0),0)}</span></div></div>
-    <div class="card data-card"><div class="eyebrow">Datos locales</div><p class="note" style="margin:0 0 14px">SQLite es el almacenamiento principal de la Beta. Noma mantiene además una copia local de emergencia y puedes exportar un JSON para conservar el progreso fuera del navegador.</p><div class="demo-actions" style="margin-top:0"><button class="ghost" onclick="exportBackup()">Exportar copia</button><button class="ghost" onclick="document.getElementById('backupImport').click()">Importar copia</button></div><input id="backupImport" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(event)"><div id="dataStatus" class="mode-note" style="margin-top:10px">${escapeHtml(persistenceLabel())} · estado v${STATE_SCHEMA_VERSION}<br>${escapeHtml(backupLabel())}</div></div>
+    <div class="card data-card"><div class="eyebrow">Datos locales</div><p class="note" style="margin:0 0 14px">SQLite es el almacenamiento principal de la Beta. Noma mantiene además una copia local de emergencia y puedes exportar un JSON para conservar el progreso fuera del navegador.</p><div class="demo-actions" style="margin-top:0"><button class="ghost" onclick="exportBackup()">Exportar copia</button><button class="ghost" onclick="openBackupVerifier()">Verificar copia</button><button class="ghost" onclick="document.getElementById('backupImport').click()">Importar copia</button></div><input id="backupImport" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(event)"><div id="dataStatus" class="mode-note" style="margin-top:10px">${escapeHtml(persistenceLabel())} · estado v${STATE_SCHEMA_VERSION}<br>${escapeHtml(backupLabel())}</div></div>
     <details class="demo-tools"><summary>Herramientas de validación</summary><div class="demo-actions"><button class="ghost" onclick="seedForgetMe()">Añadir 3 ejemplos a Forget Me</button><button class="danger-btn" onclick="resetDemo()">Reiniciar Beta</button></div></details>
     ${renderNav('progress')}`;
 }
@@ -2198,20 +2212,24 @@ function setDataStatus(message){
   if(el) el.textContent=message;
 }
 let backupDialogFocusReturn=null;
-function showBackupDialog({title,message,filename='',error=false}){
+let lastPreparedBackup=null;
+function showBackupDialog({title,message,filename='',error=false,verified=false,offerVerify=false}){
   const dialog=document.getElementById('backupDialog');
   const panel=document.getElementById('backupDialogPanel');
   if(!dialog||!panel)return;
-  backupDialogFocusReturn=document.activeElement;
+  if(dialog.hidden)backupDialogFocusReturn=document.activeElement;
   panel.classList.toggle('is-error',error);
-  document.getElementById('backupDialogMark').textContent=error?'!':'✓';
+  panel.classList.toggle('is-verified',verified);
+  panel.classList.toggle('is-pending',!verified&&!error);
+  document.getElementById('backupDialogMark').textContent=error?'!':verified?'✓':'↓';
   document.getElementById('backupDialogTitle').textContent=title;
   document.getElementById('backupDialogMessage').textContent=message;
   const file=document.getElementById('backupDialogFile');
   file.textContent=filename;
   file.hidden=!filename;
+  document.getElementById('backupDialogVerify').hidden=!offerVerify;
   dialog.hidden=false;
-  document.getElementById('backupDialogClose')?.focus();
+  document.getElementById(offerVerify?'backupDialogVerify':'backupDialogClose')?.focus();
 }
 function closeBackupDialog(){
   const dialog=document.getElementById('backupDialog');
@@ -2222,6 +2240,9 @@ function closeBackupDialog(){
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape' && !document.getElementById('backupDialog')?.hidden)closeBackupDialog();
 });
+function openBackupVerifier(){
+  document.getElementById('backupVerifyInput')?.click();
+}
 function exportBackup(){
   let url=null;
   try{
@@ -2231,32 +2252,79 @@ function exportBackup(){
     const json=JSON.stringify(payload,null,2);
     const blob=new Blob([json],{type:'application/json'});
     url=URL.createObjectURL(blob);
-    // Different timestamp per export, including repeated exports on the same day.
     const timestamp=new Date(requestedAt).toISOString().replace(/[:.]/g,'-').replace('T','_').replace('Z','');
     const filename=`noma-backup-${timestamp}.json`;
     const a=document.createElement('a');
     a.href=url; a.download=filename;
     document.body.appendChild(a);
     try{a.click();}finally{a.remove();}
-    // A click requests a browser download; the Web API cannot confirm that
-    // Android actually saved the file to its Downloads folder.
     state.lastBackupAt=requestedAt;
     save();
+    // Keep the exact exported bytes in memory until a new export or app restart.
+    // Never modify user progress just to perform this verification.
+    lastPreparedBackup={filename,json};
     setTimeout(()=>URL.revokeObjectURL(url),60000);
-    setDataStatus('Descarga solicitada · '+filename+' · comprueba Descargas');
+    setDataStatus('Descarga solicitada · pendiente de verificar · '+filename);
     showBackupDialog({
-      title:'Copia preparada',
-      message:'Noma ha preparado tu copia y ha solicitado su descarga. Confirma cualquier aviso de Chrome y comprueba que el archivo aparece en Descargas.',
-      filename
+      title:'Descarga solicitada',
+      message:'Selecciona «Verificar archivo descargado» y elige este JSON en Descargas. Noma comprobará que el archivo realmente existe y contiene tu copia.',
+      filename,
+      offerVerify:true
     });
   }catch(e){
     if(url)URL.revokeObjectURL(url);
     setDataStatus('No se pudo preparar la copia. Vuelve a intentarlo.');
     showBackupDialog({
       title:'No se pudo preparar la copia',
-      message:'No se ha podido iniciar la descarga. Vuelve a intentarlo; tu progreso sigue guardado en Noma.',
+      message:'No se ha podido iniciar la descarga. Tu progreso sigue guardado en Noma.',
       error:true
     });
+  }
+}
+async function verifyExportedBackup(event){
+  const input=event?.target;
+  const file=input?.files?.[0];
+  if(!file)return;
+  try{
+    if(file.size>10*1024*1024)throw new Error('El archivo seleccionado es demasiado grande para una copia de Noma.');
+    const raw=await file.text();
+    const payload=JSON.parse(raw);
+    // Validate structure and all 100 stable IDs without importing or saving.
+    validateBackup(payload);
+    const isCurrent=lastPreparedBackup
+      ? raw===lastPreparedBackup.json
+      : Number.isFinite(state?.lastBackupAt)
+        && payload.state.lastBackupAt===state.lastBackupAt;
+    if(isCurrent){
+      state.lastBackupVerifiedAt=state.lastBackupAt;
+      save();
+      setDataStatus('Copia verificada · '+file.name);
+      showBackupDialog({
+        title:'Copia verificada',
+        message:'He abierto y leído el archivo guardado. Es una copia válida y coincide con tu última exportación. Puedes conservarlo o trasladarlo a otro dispositivo.',
+        filename:file.name,
+        verified:true
+      });
+    }else{
+      setDataStatus('Copia válida, pero no coincide con la última descarga solicitada');
+      showBackupDialog({
+        title:'Copia anterior válida',
+        message:'El archivo se puede leer y contiene una copia de Noma, pero no corresponde a tu última exportación. Elige el archivo más reciente para confirmarla.',
+        filename:file.name,
+        offerVerify:true
+      });
+    }
+  }catch(e){
+    setDataStatus('Copia sin verificar · el archivo seleccionado no es válido');
+    showBackupDialog({
+      title:'No se ha podido verificar',
+      message:'El archivo seleccionado no se ha podido validar como copia de Noma. No se han cambiado tus datos. Comprueba que has elegido el JSON descargado.',
+      filename:file.name,
+      error:true,
+      offerVerify:true
+    });
+  }finally{
+    if(input)input.value='';
   }
 }
 function validateBackup(payload){
