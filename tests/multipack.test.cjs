@@ -103,3 +103,56 @@ test('Malformed inactive-pack data is rejected without mutating the current pack
   assert.throws(()=>f.eval("validateBackup({format:'noma-backup',backupVersion:2,state:{...state,packStates:{everyday:{units:[{id:1}]}}}})"),/no es válido/);
   assert.equal(f.eval('state.activePackId'),'conversation');
 });
+
+
+test('Home renders ten-item conversation practice without showing wrong-pack audio',()=>{
+  const f=setup();
+  vm.runInContext(
+    "const READER_TEXTS=[];"
+    +"function escapeHtml(x){return x;}"
+    +"function renderTop(){return '';}"
+    +"function renderNav(){return '';}"
+    +"function wordProgressCount(){return state.units.filter(u=>u.recognition>=1).length;}"
+    +"function sentenceProgressCount(){return state.units.filter(u=>u.production>=1).length;}"
+    +"function combinedProgressCount(){return state.units.filter(u=>u.recognition>=1&&u.production>=1).length;}"
+    +"function modeProgressCount(mode){return mode==='word'?wordProgressCount():mode==='sentence'?sentenceProgressCount():combinedProgressCount();}"
+    +"function modeLeftCount(){return PACK_SIZE-modeProgressCount(state.practiceMode);}"
+    +"function knownCount(){return state.units.filter(u=>u.status==='known').length;}"
+    +"function unstableCount(){return 0;}"
+    +"function listenFirstStats(){return {pct:null};}"
+    +"function pronounceFirstStats(){return {pct:null};}"
+    +between('function home(){','function exercise(){'),
+    f.ctx
+  );
+  f.eval("state=initialState();");
+  const everyday=f.eval("home()");
+  assert.match(everyday,/Empezar Listen Once/);
+  f.eval("switchPack('conversation')");
+  const conversation=f.eval("home()");
+  assert.match(conversation,/Natural Conversations/);
+  assert.match(conversation,/Hasta 10 ejercicios/);
+  assert.doesNotMatch(conversation,/Empezar Listen Once/);
+  assert.doesNotMatch(conversation,/Empezar Pronounce/);
+  assert.doesNotMatch(conversation,/Abrir Tiny Reader/);
+});
+test('Pack catalog renders all nine packages with only two selectable',()=>{
+  const f=setup();
+  vm.runInContext(
+    "function escapeHtml(x){return x;}"
+    +"function renderTop(){return '';}"
+    +"function renderNav(){return '';}"
+    +"function wordProgressCount(){return 0;}"
+    +"function sentenceProgressCount(){return 0;}"
+    +"function combinedProgressCount(){return 0;}"
+    +between('function pack(){','function readerText('),
+    f.ctx
+  );
+  f.eval("state=initialState()");
+  const catalogue=f.eval("pack()");
+  assert.match(catalogue,/Travel &amp; Situations|Travel & Situations/);
+  assert.match(catalogue,/MES, IT, AI &amp; Pharma|MES, IT, AI & Pharma/);
+  assert.match(catalogue,/Sports General/);
+  assert.match(catalogue,/Natural Conversations/);
+  assert.equal((catalogue.match(/En preparación/g)||[]).length,7);
+  assert.equal((catalogue.match(/Usar paquete/g)||[]).length,1);
+});
