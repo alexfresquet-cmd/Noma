@@ -2474,11 +2474,21 @@ async function verifyExportedBackup(event){
   }
 }
 function validateBackup(payload){
-  if(!payload || payload.format!==BACKUP_FORMAT || payload.backupVersion!==BACKUP_VERSION) throw new Error('Formato de copia no reconocido');
-  if(!payload.state || !Array.isArray(payload.state.units) || payload.state.units.length!==PACK_SIZE) throw new Error('La copia no corresponde al pack actual');
-  const ids=payload.state.units.map(u=>u.id);
-  if(new Set(ids).size!==PACK_SIZE || !baseUnits.every(u=>ids.includes(u.id))) throw new Error('Las unidades de la copia no son válidas');
-  return migrateState(payload.state);
+  if(!payload || payload.format!==BACKUP_FORMAT || ![1,2].includes(payload.backupVersion))
+    throw new Error('Formato de copia no reconocido');
+  const snapshot=payload.state;
+  if(!isStoredStateValid(snapshot))throw new Error('Las unidades del paquete principal no son válidas');
+  if(payload.backupVersion===1 && (snapshot.activePackId||'everyday')!=='everyday')
+    throw new Error('La copia antigua no corresponde a Everyday English');
+  const saved=snapshot.packStates||{};
+  if(!saved||typeof saved!=='object'||Array.isArray(saved))
+    throw new Error('Los datos de paquetes no son válidos');
+  for(const [packId,packState] of Object.entries(saved)){
+    if(packId===(snapshot.activePackId||'everyday') || !isPackSnapshotValid(packId,packState))
+      throw new Error('El progreso guardado de un paquete no es válido: '+packId);
+  }
+  // Validation is read-only; changing the active pack requires explicit approval.
+  return JSON.parse(JSON.stringify(snapshot));
 }
 async function importBackup(event){
   const input=event?.target;
@@ -2489,7 +2499,8 @@ async function importBackup(event){
     const payload=JSON.parse(text);
     const restored=validateBackup(payload);
     if(!confirm('Importar esta copia sustituirá el progreso actual de Noma en este dispositivo. ¿Continuar?')){ input.value=''; return; }
-    state=restored;
+    selectPackContent(restored.activePackId||'everyday');
+    state=migrateState(restored);
     state.screen='progress'; state.session=null;
     save(); render();
     setDataStatus(`Copia restaurada · ${payload.createdAt?new Date(payload.createdAt).toLocaleDateString():'fecha desconocida'}`);
@@ -2533,7 +2544,9 @@ async function recoverStorageFromBackup(event){
   if(!file) return;
   try{
     const payload=JSON.parse(await file.text());
-    state=validateBackup(payload);
+    const restored=validateBackup(payload);
+    selectPackContent(restored.activePackId||'everyday');
+    state=migrateState(restored);
     state.screen='home'; state.session=null; state.readerSession=null;
     Storage.save(state);
     render();
