@@ -172,6 +172,19 @@ button { cursor: pointer; }
 .empty-state { padding:26px 20px; border:1px dashed var(--line); border-radius:18px; text-align:center; color:var(--muted); }
 .empty-state b { color:var(--text); }
 .data-card { margin-top:16px; }
+
+/* Backup download acknowledgement. Rendered outside #app, so it survives views. */
+.backup-dialog-backdrop{position:fixed;inset:0;z-index:3000;display:grid;place-items:center;padding:20px;background:rgba(23,27,23,.52)}
+.backup-dialog-backdrop[hidden]{display:none}
+.backup-dialog-panel{width:min(100%,420px);max-height:calc(100dvh - 40px);overflow:auto;border:1px solid var(--line);border-radius:24px;background:var(--card);padding:25px 22px 22px;box-shadow:0 24px 70px rgba(18,26,19,.2)}
+.backup-dialog-mark{display:grid;place-items:center;width:44px;height:44px;border-radius:15px;background:#e7efe9;color:var(--accent);font-size:23px;font-weight:800;margin-bottom:18px}
+.backup-dialog-panel.is-error .backup-dialog-mark{background:#f4e8e5;color:var(--danger)}
+.backup-dialog-title{font-size:24px;line-height:1.15;letter-spacing:-.04em;margin:0 0 9px}
+.backup-dialog-message{font-size:15px;color:var(--muted);line-height:1.5;margin:0}
+.backup-dialog-file{margin:18px 0 0;padding:13px 14px;border:1px solid var(--line);background:var(--bg);border-radius:14px;font-size:13px;font-weight:650;overflow-wrap:anywhere}
+.backup-dialog-file[hidden]{display:none}
+.backup-dialog-action{margin-top:20px}
+
 @media (max-width:380px){ .nav-btn{font-size:11px;} }
 
 /* v0.4: typed Word recall */
@@ -298,10 +311,19 @@ button { cursor: pointer; }
 </head>
 <body>
   <main id="app" class="app-shell" aria-live="polite"><div class="topbar"><div class="brand">Noma</div><div class="lang">Beta 1</div></div><section class="card"><strong>Preparando tus datos…</strong><p class="note">Abriendo el almacenamiento local.</p></section></main>
+  <div id="backupDialog" class="backup-dialog-backdrop" hidden>
+    <section id="backupDialogPanel" class="backup-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="backupDialogTitle" aria-describedby="backupDialogMessage">
+      <div id="backupDialogMark" class="backup-dialog-mark" aria-hidden="true">✓</div>
+      <h2 id="backupDialogTitle" class="backup-dialog-title">Copia preparada</h2>
+      <p id="backupDialogMessage" class="backup-dialog-message"></p>
+      <div id="backupDialogFile" class="backup-dialog-file" hidden></div>
+      <button id="backupDialogClose" class="primary backup-dialog-action" type="button" onclick="closeBackupDialog()">Entendido</button>
+    </section>
+  </div>
   <script>
 const PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.20.8-beta.1';
+const APP_VERSION = '0.20.9-beta.1';
 const STATE_SCHEMA_VERSION = 4;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 1;
@@ -894,8 +916,8 @@ const Storage = {
 };
 
 function backupLabel(){
-  if(!state?.lastBackupAt) return 'Copia externa: todavía no';
-  return 'Última copia externa: '+new Date(state.lastBackupAt).toLocaleDateString();
+  if(!state?.lastBackupAt) return 'Última descarga solicitada: ninguna';
+  return 'Última descarga solicitada: '+new Date(state.lastBackupAt).toLocaleDateString();
 }
 function persistenceLabel(){
   if(Storage.mode==='sqlite'){
@@ -2175,22 +2197,66 @@ function setDataStatus(message){
   const el=document.getElementById('dataStatus');
   if(el) el.textContent=message;
 }
+let backupDialogFocusReturn=null;
+function showBackupDialog({title,message,filename='',error=false}){
+  const dialog=document.getElementById('backupDialog');
+  const panel=document.getElementById('backupDialogPanel');
+  if(!dialog||!panel)return;
+  backupDialogFocusReturn=document.activeElement;
+  panel.classList.toggle('is-error',error);
+  document.getElementById('backupDialogMark').textContent=error?'!':'✓';
+  document.getElementById('backupDialogTitle').textContent=title;
+  document.getElementById('backupDialogMessage').textContent=message;
+  const file=document.getElementById('backupDialogFile');
+  file.textContent=filename;
+  file.hidden=!filename;
+  dialog.hidden=false;
+  document.getElementById('backupDialogClose')?.focus();
+}
+function closeBackupDialog(){
+  const dialog=document.getElementById('backupDialog');
+  if(dialog)dialog.hidden=true;
+  if(backupDialogFocusReturn?.isConnected)backupDialogFocusReturn.focus();
+  backupDialogFocusReturn=null;
+}
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape' && !document.getElementById('backupDialog')?.hidden)closeBackupDialog();
+});
 function exportBackup(){
+  let url=null;
   try{
-    state.lastBackupAt=Date.now();
-    save();
+    const requestedAt=Date.now();
     const payload=backupPayload();
+    payload.state.lastBackupAt=requestedAt;
     const json=JSON.stringify(payload,null,2);
     const blob=new Blob([json],{type:'application/json'});
-    const url=URL.createObjectURL(blob);
-    const stamp=new Date().toISOString().slice(0,10);
+    url=URL.createObjectURL(blob);
+    // Different timestamp per export, including repeated exports on the same day.
+    const timestamp=new Date(requestedAt).toISOString().replace(/[:.]/g,'-').replace('T','_').replace('Z','');
+    const filename=`noma-backup-${timestamp}.json`;
     const a=document.createElement('a');
-    a.href=url; a.download=`noma-backup-${stamp}.json`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
-    setDataStatus('Copia exportada · guárdala en un lugar seguro');
+    a.href=url; a.download=filename;
+    document.body.appendChild(a);
+    try{a.click();}finally{a.remove();}
+    // A click requests a browser download; the Web API cannot confirm that
+    // Android actually saved the file to its Downloads folder.
+    state.lastBackupAt=requestedAt;
+    save();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    setDataStatus('Descarga solicitada · '+filename+' · comprueba Descargas');
+    showBackupDialog({
+      title:'Copia preparada',
+      message:'Noma ha preparado tu copia y ha solicitado su descarga. Confirma cualquier aviso de Chrome y comprueba que el archivo aparece en Descargas.',
+      filename
+    });
   }catch(e){
-    setDataStatus('No se pudo exportar la copia en este navegador');
+    if(url)URL.revokeObjectURL(url);
+    setDataStatus('No se pudo preparar la copia. Vuelve a intentarlo.');
+    showBackupDialog({
+      title:'No se pudo preparar la copia',
+      message:'No se ha podido iniciar la descarga. Vuelve a intentarlo; tu progreso sigue guardado en Noma.',
+      error:true
+    });
   }
 }
 function validateBackup(payload){
