@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.8-beta.1 — Contadores Word/Sentence independientes
+- Corregido el contador de progreso: resolver una palabra inestable en Word ya no puede sumar también Sentence sin haberla practicado.
+- La inestabilidad se registra ahora por habilidad (Word y Sentence) y el avance combinado requiere que ambas estén estables.
+- El fallo en una habilidad ya no descuenta el progreso de la otra.
+- Los repasos resueltos limpian solo la inestabilidad de su propia habilidad. Si hay un fallo pendiente en la otra, el repaso se mantiene programado.
+- Los datos antiguos migran sin borrar aciertos; los fallos heredados se atribuyen al último modo de repaso registrado, la única información histórica disponible.
+- Sin cambios en los IDs de unidades ni en la estructura SQLite. Incluidas pruebas de regresión del cálculo de contadores y de migración.
+
 ## 0.20.7-beta.1 — Sesiones completas
 - Corregida la selección de Word: antes el plan podía quedarse en solo dos repasos porque las unidades con recuperación futura se excluían de la práctica.
 - Word y Sentence completan diez ejercicios siempre que queden suficientes habilidades pendientes; Combinado respeta la variedad y no repite unidades en la misma sesión.
