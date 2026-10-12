@@ -330,12 +330,12 @@ button { cursor: pointer; }
   </div>
   <input id="backupVerifyInput" type="file" accept=".json,application/json" hidden onchange="verifyExportedBackup(event)">
   <script>
-const PACK_SIZE = 100;
+let PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.20.10-beta.1';
-const STATE_SCHEMA_VERSION = 4;
+const APP_VERSION = '0.21.0-beta.1';
+const STATE_SCHEMA_VERSION = 5;
 const BACKUP_FORMAT = 'noma-backup';
-const BACKUP_VERSION = 1;
+const BACKUP_VERSION = 2;
 const SQLITE_DB_SCHEMA_VERSION = 1;
 const EMERGENCY_STORAGE_KEY = 'noma_beta_emergency_state_v1';
 
@@ -449,7 +449,7 @@ const CLOZE_OVERRIDES = {
   'spend': {prompt:'I _____ too much money.', answer:'spent'}
 };
 
-const baseUnits = [
+let baseUnits = [
   ['although','aunque','Although it was raining, we went out.','Aunque llovía, salimos.'],
   ['instead','en su lugar','We stayed home instead.','Nos quedamos en casa en su lugar.'],
   ['enough','suficiente','That is enough for today.','Eso es suficiente por hoy.'],
@@ -551,6 +551,104 @@ const baseUnits = [
   ['different','diferente','This one is different.','Este es diferente.'],
   ['on time','a tiempo','The train arrived on time.','El tren llegó a tiempo.']
 ].map((x, i) => ({ id: i+1, term:x[0], meaning:x[1], en:x[2], es:x[3] }));
+
+// Pack-specific IDs are stable only within a pack; never reuse an id for
+// different material inside the same pack. Other packs remain editorial backlog.
+const EVERYDAY_UNITS=baseUnits;
+const CONVERSATION_UNITS=[
+  ['that makes sense','tiene sentido','That makes sense to me.','Eso tiene sentido para mí.'],
+  ['I see what you mean','entiendo lo que quieres decir','I see what you mean now.','Ahora entiendo lo que quieres decir.'],
+  ['fair enough','me parece razonable','Fair enough, we can try your idea.','Me parece razonable, podemos probar tu idea.'],
+  ["it's up to you",'tú decides',"It's up to you where we eat.",'Tú decides dónde comemos.'],
+  ['sounds good to me','me parece bien','Sounds good to me, see you on Friday.','Me parece bien, nos vemos el viernes.'],
+  ["I'm not sure",'no estoy seguro',"I'm not sure about that.",'No estoy seguro de eso.'],
+  ['give me a second','dame un segundo','Give me a second to check.','Dame un segundo para comprobarlo.'],
+  ['what do you mean','qué quieres decir','What do you mean by that?','¿Qué quieres decir con eso?'],
+  ["I didn't catch that",'no he entendido eso',"Sorry, I didn't catch that.",'Perdona, no he entendido eso.'],
+  ['could you repeat that','podrías repetir eso','Could you repeat that, please?','¿Podrías repetir eso, por favor?'],
+  ['let me think','déjame pensar','Let me think for a moment.','Déjame pensar un momento.'],
+  ['you have a point','tienes razón en eso','You have a point about the timing.','Tienes razón en eso del horario.'],
+  ["I couldn't agree more",'estoy totalmente de acuerdo',"I couldn't agree more with you.",'Estoy totalmente de acuerdo contigo.'],
+  ["that's a good question",'es una buena pregunta',"That's a good question, actually.",'Es una buena pregunta, la verdad.'],
+  ['to be honest','para ser sincero','To be honest, I prefer the first option.','Para ser sincero, prefiero la primera opción.'],
+  ['no worries','no te preocupes','No worries, we have enough time.','No te preocupes, tenemos tiempo suficiente.'],
+  ['never mind','no importa','Never mind, I found it.','No importa, ya lo he encontrado.'],
+  ['not really','la verdad es que no','Not really, I would rather stay in.','La verdad es que no, preferiría quedarme en casa.'],
+  ['sort of','más o menos','I sort of understand the problem.','Entiendo el problema más o menos.'],
+  ['it depends','depende','It depends on the weather.','Depende del tiempo.'],
+  ['good for you','me alegro por ti','Good for you, you got the job!','Me alegro por ti, ¡conseguiste el trabajo!'],
+  ['long time no see','cuánto tiempo sin verte','Long time no see! How have you been?','¡Cuánto tiempo sin verte! ¿Cómo has estado?'],
+  ["how's it going",'qué tal te va',"Hey, how's it going?",'Hola, ¿qué tal te va?'],
+  ['no big deal','no es para tanto',"It's no big deal, don't worry.",'No es para tanto, no te preocupes.'],
+  ['what a shame','qué lástima','What a shame that you missed it.','Qué lástima que te lo perdieras.'],
+  ['come to think of it','ahora que lo pienso','Come to think of it, she mentioned that yesterday.','Ahora que lo pienso, ella mencionó eso ayer.'],
+  ['as far as I know','que yo sepa','As far as I know, the shop closes at six.','Que yo sepa, la tienda cierra a las seis.'],
+  ['if you ask me','si me preguntas a mí','If you ask me, the blue one is better.','Si me preguntas a mí, el azul es mejor.'],
+  ['on second thought','pensándolo mejor','On second thought, I will take the train.','Pensándolo mejor, iré en tren.'],
+  ['in the meantime','mientras tanto','In the meantime, we can get some coffee.','Mientras tanto, podemos tomar un café.']
+].map((x,i)=>({id:i+1,term:x[0],meaning:x[1],en:x[2],es:x[3]}));
+const PACK_CATALOG=[
+  {id:'everyday',name:'Everyday English',description:'Inglés cotidiano y conectores',units:EVERYDAY_UNITS},
+  {id:'conversation',name:'Natural Conversations',description:'Expresiones para conversar con naturalidad',units:CONVERSATION_UNITS},
+  {id:'travel',name:'Travel & Situations',description:'Viajes, transporte e imprevistos',units:null},
+  {id:'phrasal',name:'Phrasal Verbs',description:'Verbos compuestos en contexto',units:null},
+  {id:'work',name:'Work & Meetings',description:'Reuniones y comunicación profesional',units:null},
+  {id:'technology',name:'Technology',description:'Tecnología, software y sistemas',units:null},
+  {id:'pharma',name:'MES, IT, AI & Pharma',description:'MES, GMP, integraciones, datos e IA',units:null},
+  {id:'soccer',name:'Soccer',description:'Fútbol, partidos y táctica',units:null},
+  {id:'sports',name:'Sports General',description:'Otros deportes y vocabulario deportivo',units:null}
+];
+function packDefinition(id){return PACK_CATALOG.find(p=>p.id===id)||null;}
+function selectPackContent(id){
+  const pack=packDefinition(id);
+  if(!pack?.units)throw new Error('Este paquete todavía no tiene contenido validado.');
+  baseUnits=pack.units;
+  PACK_SIZE=baseUnits.length;
+}
+function isStoredStateValid(value){
+  const pack=packDefinition(value?.activePackId||'everyday');
+  if(!pack?.units||!Array.isArray(value?.units)||value.units.length!==pack.units.length)return false;
+  const ids=value.units.map(u=>u?.id);
+  return new Set(ids).size===pack.units.length && pack.units.every(u=>ids.includes(u.id));
+}
+function isPackSnapshotValid(id,snapshot){
+  return isStoredStateValid({...snapshot,activePackId:id});
+}
+function activePack(){return packDefinition(state?.activePackId||'everyday')||PACK_CATALOG[0];}
+function packSnapshot(source){
+  const snapshot=JSON.parse(JSON.stringify(source));
+  delete snapshot.packStates;delete snapshot.activePackId;
+  delete snapshot.lastBackupAt;delete snapshot.lastBackupVerifiedAt;
+  snapshot.session=null;snapshot.readerSession=null;snapshot.screen='home';
+  return snapshot;
+}
+function switchPack(id){
+  const pack=packDefinition(id);
+  if(!pack?.units||!state||id===state.activePackId)return;
+  // Only pack selectors are in the Pack view; protect against future entry
+  // points that might switch during an unfinished exercise.
+  if(state.screen==='exercise')return;
+  const previousId=state.activePackId||'everyday';
+  const states={...(state.packStates||{})};
+  states[previousId]=packSnapshot(state);
+  const previouslySaved=states[id];
+  if(previouslySaved&&!isPackSnapshotValid(id,previouslySaved)){
+    alert('No se puede abrir este paquete porque su progreso guardado no es válido. No se ha sobrescrito.');
+    return;
+  }
+  selectPackContent(id);
+  const next=previouslySaved
+    ? migrateState({...previouslySaved,activePackId:id})
+    : initialState();
+  delete states[id];
+  next.packStates=states;
+  next.activePackId=id;
+  next.lastBackupAt=state.lastBackupAt;
+  next.lastBackupVerifiedAt=state.lastBackupVerifiedAt;
+  next.screen='pack';next.session=null;next.readerSession=null;
+  state=next;
+  save();render();
+}
 
 const READER_TEXTS = [
   {
