@@ -6,6 +6,7 @@ on:
     paths:
       - index.html
       - tests/session-planning.test.cjs
+      - tests/progress-isolation.test.cjs
       - .github/workflows/session-tests.yml
   workflow_dispatch:
 
@@ -22,4 +23,4 @@ jobs:
         with:
           persist-credentials: false
       - name: Validate JavaScript and session selection
-        run: node --test tests/session-planning.test.cjs
+        run: node --test tests/*.test.cjs
