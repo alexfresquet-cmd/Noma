@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.9-beta.1 — Confirmación de copia de seguridad
+- Tras solicitar una exportación, Noma presenta un diálogo claro con el nombre del archivo y la indicación de comprobarlo en Descargas.
+- La web no puede verificar que Android haya guardado el archivo: la interfaz comunica una descarga solicitada, no un guardado confirmado.
+- Cada exportación genera un nombre distinto con fecha y hora, para evitar el aviso de archivo existente en exportaciones sucesivas.
+- Si el navegador no permite iniciar la descarga, se muestra un diálogo de error y no se actualiza la marca de última descarga solicitada.
+- La copia conserva su formato JSON, unidades y progreso; no hay cambios de esquema.
+- Pruebas automatizadas para confirmación, nombre único y error de descarga.
+
 ## 0.20.8-beta.1 — Contadores Word/Sentence independientes
 - Corregido el contador de progreso: resolver una palabra inestable en Word ya no puede sumar también Sentence sin haberla practicado.
 - La inestabilidad se registra ahora por habilidad (Word y Sentence) y el avance combinado requiere que ambas estén estables.
