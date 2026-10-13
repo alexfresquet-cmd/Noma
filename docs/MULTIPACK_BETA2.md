@@ -61,3 +61,13 @@ Se habilitan los siete paquetes que figuraban en preparación, cada uno con **30
 **Reinicio por paquete:** desde Pack se puede reiniciar el paquete activo, o uno inactivo con datos. Antes aparece una confirmación con su nombre. Reiniciar el activo recrea solo sus unidades, fallos, sesiones y lecturas; reiniciar uno inactivo borra únicamente su instantánea. Todos los otros progresos permanecen igual. Se aconseja exportar y verificar un JSON antes, ya que el reinicio no tiene deshacer individual. Restaurar un backup sustituye el estado completo.
 
 **Prueba Android:** verificar que cada paquete permite diez ejercicios mientras hay unidades disponibles, que cambiar al original conserva su progreso, que el botón de reinicio funciona y que al volver al paquete reiniciado comienza en cero. Comprobar recarga y reinicio sin conexión con los archivos de paquete precacheados.
+
+## Evolución 0.23.0-beta.1
+
+**Nuevo alcance:** 9 paquetes × 100 unidades = 900 unidades; 9 bibliotecas × 10 textos × 6 preguntas = 540 preguntas. Se conservan las ocho lecturas originales de Everyday. Las unidades 1–30 de los ocho paquetes beta mantienen su contenido e identificador. Las nuevas son 31–100. El paquete Everyday conserva sus 100 unidades.
+
+**Migración segura:** SQLite local sin cambios de esquema; versión de estado 6. La validación de copias y SQLite admite únicamente longitud 100 o 30 en los paquetes que previamente tenían 30. Rechaza otras longitudes y reordenaciones. Se añaden 70 registros sin progreso a cada paquete antiguo; nunca se sustituyen los datos existentes.
+
+**Lecturas:** 10 por paquete y seis preguntas por texto; sus resultados permanecen en el estado local de ese paquete. Al reiniciarlo se borra también la lectura de ese paquete. El generador de textos de esta beta utiliza escenarios fijos y una estructura narrativa compartida; es material editorial experimental que necesita revisión por legibilidad y variedad antes de declararse consolidado.
+
+**Pendiente de dispositivo real:** comprobar actualización del PWA sin desinstalarla, contadores 100/100, los diez textos por paquete, los resultados 0–6/6, cambio de paquete, reinicio selectivo, copia JSON antigua, relanzamiento offline y compatibilidad con el progreso previo.
