@@ -23,20 +23,20 @@ globalThis.NOMA_PACK_READERS.everyday=[
       {
         "q": "What condition did the manager set?",
         "options": [
-          "Volunteers had to check it twice a week",
           "Everyone had to pay a fee",
+          "Volunteers had to check it twice a week",
           "Only children could borrow books"
         ],
-        "correct": 0
+        "correct": 1
       },
       {
         "q": "How many people volunteered?",
         "options": [
-          "Four",
           "Two",
-          "Ten"
+          "Ten",
+          "Four"
         ],
-        "correct": 0
+        "correct": 2
       },
       {
         "q": "What did a local shop donate?",
@@ -50,20 +50,20 @@ globalThis.NOMA_PACK_READERS.everyday=[
       {
         "q": "What appeared beside the short stories?",
         "options": [
-          "A thank-you note",
           "A parking ticket",
+          "A thank-you note",
           "An invitation to a concert"
         ],
-        "correct": 0
+        "correct": 1
       },
       {
         "q": "What did the neighbours plan to do next?",
         "options": [
-          "Review the exchange rules",
           "Close the community centre",
-          "Sell all the books"
+          "Sell all the books",
+          "Review the exchange rules"
         ],
-        "correct": 0
+        "correct": 2
       }
     ],
     "words": 226,
@@ -83,20 +83,20 @@ globalThis.NOMA_PACK_READERS.everyday=[
       {
         "q": "Whose name was on the parcel?",
         "options": [
-          "A neighbour two floors above",
           "Daniel's manager",
+          "A neighbour two floors above",
           "A delivery driver"
         ],
-        "correct": 0
+        "correct": 1
       },
       {
         "q": "Why did Daniel avoid leaving the parcel in the hall?",
         "options": [
-          "Someone else might take it",
           "He wanted to open it",
-          "The corridor was being painted"
+          "The corridor was being painted",
+          "Someone else might take it"
         ],
-        "correct": 0
+        "correct": 2
       },
       {
         "q": "What did Daniel leave under the door?",
@@ -110,20 +110,20 @@ globalThis.NOMA_PACK_READERS.everyday=[
       {
         "q": "What was inside the parcel?",
         "options": [
-          "A birthday present for a niece",
           "Office equipment",
+          "A birthday present for a niece",
           "A pair of running shoes"
         ],
-        "correct": 0
+        "correct": 1
       },
       {
         "q": "What did Priya change afterwards?",
         "options": [
-          "Her delivery instructions",
           "Her job",
-          "Her apartment number"
+          "Her apartment number",
+          "Her delivery instructions"
         ],
-        "correct": 0
+        "correct": 2
       },
       {
         "q": "What did Priya give Daniel?",
