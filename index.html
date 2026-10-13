@@ -700,7 +700,12 @@ function selectPackContent(id){
 }
 function isStoredStateValid(value){
   const pack=packDefinition(value?.activePackId||'everyday');
-  if(!pack?.units||!Array.isArray(value?.units)||value.units.length<1||value.units.length>pack.units.length)return false;
+  if(!pack?.units||!Array.isArray(value?.units))return false;
+  const count=value.units.length;
+  // Only the published 30-unit beta or the new 100-unit catalog is accepted.
+  // Arbitrary partial snapshots could conceal a damaged backup or SQLite state.
+  const isLegacyThirty=pack.id!=='everyday'&&count===30;
+  if(count!==pack.units.length&&!isLegacyThirty)return false;
   // Historical backups contain 30 units. New units are appended, never re-used.
   // Reject holes, reordered identifiers and duplicates to avoid silently corrupting progress.
   return value.units.every((u,i)=>u?.id===pack.units[i].id);
