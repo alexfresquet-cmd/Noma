@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.22.0-beta.1 — Siete paquetes de contenido y reinicio individual
+- Se activan Travel, Phrasal Verbs, Work & Meetings, Technology, MES/IT/AI/Pharma, Soccer y Sports General con 30 unidades iniciales cada uno (210 en total), ID 1–30 independiente por paquete.
+- Cada unidad tiene expresión inglesa, significado castellano, oración inglesa y traducción castellana. Son paquetes de prueba editorial, no cursos completos validados por uso real.
+- Se corrige la inicialización de paquetes nuevos para asignar el ID activo correcto.
+- «Reiniciar paquete» pide confirmación e inicializa solo el paquete escogido; no borra el aprendizaje de los otros ni modifica las marcas globales de copia externa.
+- Se conservan las copias JSON v1/v2, SQLite y los IDs originales. Audio y Tiny Reader siguen limitados a Everyday English.
+- Nuevas pruebas de aislamiento, reinicio, cancelación y backup multipaquete.
+
+
 ## 0.21.0-beta.1 — Paquetes independientes (beta)
 - Se conserva Everyday English con sus 100 unidades y progreso existente.
 - Natural Conversations se incorpora como segundo paquete con 30 expresiones y ejercicios Word, Sentence y Combinado.
