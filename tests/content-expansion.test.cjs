@@ -43,7 +43,7 @@ test('Every theme has one hundred stable unique entries after original thirty',(
   for(const id of newer){
     const ext=vm.runInContext('globalThis.NOMA_UNIT_EXTENSIONS['+JSON.stringify(id)+']',ctx);
     assert.equal(ext.length,70,id);
-    assert.deepEqual(ext.map(u=>u.id),Array.from({length:70},(_,i)=>i+31),id);
+    assert.deepEqual(Array.from(ext,u=>u.id),Array.from({length:70},(_,i)=>i+31),id);
     assert.equal(new Set(ext.map(u=>u.term.toLowerCase())).size,70,id);
     for(const u of ext){
       assert.ok(u.term&&u.meaning&&u.en&&u.es,id+' '+u.id+' missing copy');
