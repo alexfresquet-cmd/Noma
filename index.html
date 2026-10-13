@@ -456,7 +456,49 @@ const WORD_ALIASES = {
   'likely':['probable','probablemente'],
   'similar':['parecido','parecida','similar'],
   'different':['diferente','distinto','distinta'],
-  'on time':['a tiempo','puntual']
+  'on time':['a tiempo','puntual'],
+  // Common valid Spanish alternatives for the seven starter packs.
+  'check in':['facturar','registrarse','hacer el check in'],
+  'check out':['salir del hotel','dejar el hotel','dejar la habitacion'],
+  'fully booked':['completo','sin habitaciones disponibles','sin plazas libres'],
+  'missed connection':['perdida de conexion','conexion perdida'],
+  'boarding pass':['pase de embarque','tarjeta de embarque'],
+  'carry-on bag':['equipaje de cabina','maleta de mano'],
+  'city centre':['centro','centro de la ciudad'],
+  'bring up':['mencionar','plantear','sacar el tema'],
+  'come across':['encontrarse por casualidad','toparse con','encontrar por casualidad'],
+  'cut down on':['reducir','consumir menos'],
+  'drop by':['pasar a visitar','pasarse','hacer una visita'],
+  'get along with':['llevarse bien','tener buena relacion con'],
+  'get back to':['contestar','responder','volver a ponerse en contacto'],
+  'get over':['superar','recuperarse de'],
+  'go ahead':['adelante','continuar','seguir adelante'],
+  'hold on':['espera un momento','esperar','un momento'],
+  'look forward to':['tener ganas de','esperar con ganas'],
+  'look into':['investigar','examinar','revisar'],
+  'look up':['buscar','consultar'],
+  'point out':['indicar','señalar','hacer notar'],
+  'put off':['aplazar','posponer','dejar para mas tarde'],
+  'run into':['encontrarse con','toparse con'],
+  'sort out':['resolver','arreglar','solucionar'],
+  'take over':['tomar el relevo','hacerse cargo de'],
+  'turn down':['rechazar','declinar'],
+  'deadline':['plazo','fecha limite'],
+  'milestone':['hito','punto clave'],
+  'blocker':['obstaculo','impedimento','bloqueo'],
+  'scope':['alcance','ambito'],
+  'stakeholder':['parte interesada','interesado'],
+  'deployment':['despliegue','puesta en produccion'],
+  'rollback':['reversion','vuelta a la version anterior'],
+  'audit trail':['registro de auditoria','traza de auditoria'],
+  'data mapping':['mapeo de datos','correspondencia de datos'],
+  'batch release':['liberacion de lote','liberacion del lote'],
+  'offside':['fuera de juego'],
+  'goalkeeper':['portero','guardameta'],
+  'stoppage time':['tiempo de descuento','tiempo anadido'],
+  'clean sheet':['porteria a cero','no encajar goles'],
+  'free throw':['tiro libre','tiro libre de baloncesto'],
+  'recovery day':['dia de descanso','dia de recuperacion']
 };
 
 const CLOZE_OVERRIDES = {
@@ -2260,7 +2302,7 @@ function pack(){
     const sentence=units.filter(u=>u.production>=1&&!(u.unstableModes||[]).includes('sentence')).length;
     const both=units.filter(u=>u.recognition>=1&&u.production>=1
       &&!(u.unstableModes||[]).includes('word')&&!(u.unstableModes||[]).includes('sentence')).length;
-    let html='<article class="pack-option'+(isActive?' selected':'')+'"><div class="pack-option-head"><div><h2>'+escapeHtml(p.name)+'</h2><p>'+escapeHtml(p.description)+'</p></div><span class="pack-option-label">'+(size?size+' unidades':'Próximamente')+'</span></div>';
+    let html='<article class="pack-option'+(isActive?' selected':'')+'"><div class="pack-option-head"><div><h2>'+escapeHtml(p.name)+'</h2><p>'+escapeHtml(p.description)+'</p></div><span class="pack-option-label">'+(size?size+' unidades'+(p.id==='everyday'?'':' · beta'):'Próximamente')+'</span></div>';
     if(size)html+='<div class="progress-line"><div style="width:'+Math.round(both/size*100)+'%"></div></div><div class="session-row"><span>Word '+word+'/'+size+'</span><em>Sentence '+sentence+'/'+size+' · Ambas '+both+'/'+size+'</em></div>';
     html+='<div class="pack-actions"><button type="button" '+(isActive||!size?'disabled':'')+' onclick="switchPack(&quot;'+p.id+'&quot;)">'+(!size?'En preparación':isActive?'En uso':'Usar paquete')+'</button>';
     if(size&&(isActive||saved))html+='<button type="button" class="pack-reset" aria-label="Reiniciar '+escapeHtml(p.name)+'" onclick="resetPack(&quot;'+p.id+'&quot;)">Reiniciar paquete</button>';
