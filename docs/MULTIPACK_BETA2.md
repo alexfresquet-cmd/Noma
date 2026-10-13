@@ -53,3 +53,11 @@ Mantener **Everyday English** como paquete original con sus 100 IDs sin alterarl
 ## Próximo hito
 
 Validar Natural Conversations en el Pixel, corregir expresiones con significados ambiguos y después preparar **Travel & Situations**. Los demás paquetes permanecen en backlog y no forman parte de la beta funcional.
+
+## Evolución 0.22.0-beta.1
+
+Se habilitan los siete paquetes que figuraban en preparación, cada uno con **30 unidades iniciales** (Word, Sentence, Combinado y Forget Me). En total, Noma dispone de Everyday English 100 + Natural Conversations 30 + siete paquetes de 30 = **340 unidades** distribuidas en nueve paquetes. Todos los nuevos textos son contenido de beta para revisión editorial y no incorporan audio ni Tiny Reader.
+
+**Reinicio por paquete:** desde Pack se puede reiniciar el paquete activo, o uno inactivo con datos. Antes aparece una confirmación con su nombre. Reiniciar el activo recrea solo sus unidades, fallos, sesiones y lecturas; reiniciar uno inactivo borra únicamente su instantánea. Todos los otros progresos permanecen igual. Se aconseja exportar y verificar un JSON antes, ya que el reinicio no tiene deshacer individual. Restaurar un backup sustituye el estado completo.
+
+**Prueba Android:** verificar que cada paquete permite diez ejercicios mientras hay unidades disponibles, que cambiar al original conserva su progreso, que el botón de reinicio funciona y que al volver al paquete reiniciado comienza en cero. Comprobar recarga y reinicio sin conexión con los archivos de paquete precacheados.
