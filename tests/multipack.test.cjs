@@ -29,9 +29,14 @@ function setup(){
     new vm.Script(script);
     vm.runInContext(script,ctx,{filename:'packs/'+id+'.js'});
   }
+  for(const id of ['conversation',...extraIds]){
+    const script=fs.readFileSync(path.join(__dirname,'..','packs',id+'-extra.js'),'utf8');
+    new vm.Script(script);
+    vm.runInContext(script,ctx,{filename:'packs/'+id+'-extra.js'});
+  }
   const definitions=
     'let PACK_SIZE=100;\nlet baseUnits='+JSON.stringify(units)+';\n'
-    +'const STATE_SCHEMA_VERSION=5;\n'
+    +'const STATE_SCHEMA_VERSION=6;\n'
     +between('const EVERYDAY_UNITS=baseUnits;','const READER_TEXTS = [')
     +between('function initialState(){','const SQLiteStore =')
     +'let state=null;\n'
@@ -42,20 +47,20 @@ function setup(){
     get confirmations(){return confirmations;},
     get saves(){return saves;}};
 }
-test('Inline application and thirty curated conversation units parse',()=>{
+test('Nine hundred contextual units and new content scripts parse',()=>{
   const js=between('  <script>','</script>').replace(/^\s*<script>/,'');
   new vm.Script(js);
   const f=setup();
-  assert.equal(f.eval('CONVERSATION_UNITS.length'),30);
+  assert.equal(f.eval('CONVERSATION_UNITS.length'),100);
   assert.equal(f.eval('PACK_CATALOG.length'),9);
   assert.equal(f.eval("PACK_CATALOG.filter(p=>p.units).length"),9);
   for(const id of extraIds){
-    assert.equal(f.eval('packDefinition('+JSON.stringify(id)+').units.length'),30);
-    assert.equal(f.eval('new Set(packDefinition('+JSON.stringify(id)+').units.map(u=>u.term)).size'),30);
+    assert.equal(f.eval('packDefinition('+JSON.stringify(id)+').units.length'),100);
+    assert.equal(f.eval('new Set(packDefinition('+JSON.stringify(id)+').units.map(u=>u.term)).size'),100);
     assert.equal(f.eval('packDefinition('+JSON.stringify(id)+').units.every(u=>u.term&&u.meaning&&u.en&&u.es&&u.en.toLowerCase().includes(u.term.toLowerCase()))'),true);
   }
-  assert.equal(f.eval("new Set(CONVERSATION_UNITS.map(u=>u.id)).size"),30);
-  assert.equal(f.eval("new Set(CONVERSATION_UNITS.map(u=>u.term)).size"),30);
+  assert.equal(f.eval("new Set(CONVERSATION_UNITS.map(u=>u.id)).size"),100);
+  assert.equal(f.eval("new Set(CONVERSATION_UNITS.map(u=>u.term)).size"),100);
   assert.equal(f.eval("CONVERSATION_UNITS.every(u=>u.term&&u.meaning&&u.en&&u.es)"),true);
 });
 
@@ -65,8 +70,8 @@ test('Legacy 100-unit state with 23 learned words is preserved after roundtrip',
   const before=f.eval("JSON.stringify({progress:state.units.map(u=>({id:u.id,recognition:u.recognition,production:u.production,dueSession:u.dueSession,mistakes:u.mistakes})),wrongBook:state.wrongBook,sessionNumber:state.sessionNumber})");
   f.eval("switchPack('conversation')");
   assert.equal(f.eval("state.activePackId"),'conversation');
-  assert.equal(f.eval('state.units.length'),30);
-  assert.equal(f.eval('PACK_SIZE'),30);
+  assert.equal(f.eval('state.units.length'),100);
+  assert.equal(f.eval('PACK_SIZE'),100);
   f.eval("switchPack('everyday')");
   assert.equal(f.eval('state.units.length'),100);
   assert.equal(f.eval('PACK_SIZE'),100);
@@ -108,7 +113,7 @@ test('Backup v1 restores Everyday, and v2 includes all saved packs',()=>{
   assert.equal(f.eval('validateBackup(JSON.parse('+JSON.stringify(legacy)+')).units.length'),100);
   f.eval("switchPack('conversation');state.units[0].production=1");
   const modern=f.eval("JSON.stringify({format:'noma-backup',backupVersion:2,state:state})");
-  assert.equal(f.eval('validateBackup(JSON.parse('+JSON.stringify(modern)+')).units.length'),30);
+  assert.equal(f.eval('validateBackup(JSON.parse('+JSON.stringify(modern)+')).units.length'),100);
   assert.equal(f.eval('validateBackup(JSON.parse('+JSON.stringify(modern)+')).packStates.everyday.units[0].recognition'),1);
 });
 
@@ -137,6 +142,7 @@ test('Home renders ten-item conversation practice without showing wrong-pack aud
     +"function unstableCount(){return 0;}"
     +"function listenFirstStats(){return {pct:null};}"
     +"function pronounceFirstStats(){return {pct:null};}"
+    +"function activeReaders(){return Array.from({length:10});}"
     +between('function home(){','function exercise(){'),
     f.ctx
   );
@@ -149,7 +155,7 @@ test('Home renders ten-item conversation practice without showing wrong-pack aud
   assert.match(conversation,/Hasta 10 ejercicios/);
   assert.doesNotMatch(conversation,/Empezar Listen Once/);
   assert.doesNotMatch(conversation,/Empezar Pronounce/);
-  assert.doesNotMatch(conversation,/Abrir Tiny Reader/);
+  assert.match(conversation,/Abrir Tiny Reader/);
 });
 test('Pack catalog renders nine selectable packs and contextual reset actions',()=>{
   const f=setup();
@@ -184,7 +190,7 @@ test('All seven new packs switch and keep their own progress independently',()=>
   for(const id of extraIds){
     f.eval('switchPack('+JSON.stringify(id)+')');
     assert.equal(f.eval('state.activePackId'),id);
-    assert.equal(f.eval('state.units.length'),30);
+    assert.equal(f.eval('state.units.length'),100);
     assert.equal(f.eval('state.units[0].recognition'),0);
     f.eval("state.units[0].recognition=1;state.units[0].production=1;state.wrongBook['1:word']={failures:3}");
   }
@@ -206,7 +212,7 @@ test('Resetting the active pack clears all its learning while preserving others'
   f.eval("state.units[0].recognition=3;state.units[0].production=2;state.units[0].mistakes=4;state.wrongBook['1:word']={failures:4};state.sessionNumber=17;state.readerProgress.demo={attempts:2};state.lastBackupAt=456;state.lastBackupVerifiedAt=456");
   assert.equal(f.eval("resetPack('pharma')"),true);
   assert.equal(f.eval('state.activePackId'),'pharma');
-  assert.equal(f.eval('state.units.length'),30);
+  assert.equal(f.eval('state.units.length'),100);
   assert.equal(f.eval('state.units[0].recognition'),0);
   assert.equal(f.eval('state.units[0].production'),0);
   assert.equal(f.eval('state.units[0].mistakes'),0);
@@ -259,4 +265,41 @@ test('Backup v2 recognizes new packs after switch and restore',()=>{
   assert.equal(restored.activePackId,'technology');
   assert.equal(restored.packStates.sports.units[4].recognition,2);
   assert.equal(restored.packStates.everyday.units.length,100);
+});
+
+test('Old 30-unit progress migrates to 100 without resetting learned IDs, reviews or reading history',()=>{
+  const f=setup();
+  f.eval("state=initialState();switchPack('travel');state.units[2].recognition=2;state.units[2].production=1;state.units[2].mistakes=5;state.units[2].dueSession=29;state.readerProgress['travel-01']={attempts:2,bestScore:5,lastScore:4,lastRead:111};state.wrongBook['3:word']={failures:4};state.sessionNumber=12");
+  const old=f.eval("JSON.stringify({...state,units:state.units.slice(0,30)})");
+  assert.equal(f.eval("isStoredStateValid(JSON.parse("+JSON.stringify(old)+"))"),true);
+  const z=setup();
+  z.eval("selectPackContent('travel');state=migrateState(JSON.parse("+JSON.stringify(old)+"))");
+  assert.equal(z.eval('state.units.length'),100);
+  assert.equal(z.eval('state.units[2].recognition'),2);
+  assert.equal(z.eval('state.units[2].production'),1);
+  assert.equal(z.eval('state.units[2].mistakes'),5);
+  assert.equal(z.eval('state.units[2].dueSession'),29);
+  assert.equal(z.eval('state.units[30].recognition'),0);
+  assert.equal(z.eval("state.readerProgress['travel-01'].attempts"),2);
+  assert.equal(z.eval("state.wrongBook['3:word'].failures"),4);
+  assert.equal(z.eval('state.sessionNumber'),12);
+});
+
+test('Inactive legacy 30-unit snapshots are still selectable after catalog expansion',()=>{
+  const f=setup();
+  f.eval("state=initialState();state.packStates.pharma={...packSnapshot(state),units:packDefinition('pharma').units.slice(0,30).map(u=>({...u,recognition:1,production:0,reviewMode:null,unstableModes:[]})),sessionNumber:7};");
+  assert.equal(f.eval("isPackSnapshotValid('pharma',state.packStates.pharma)"),true);
+  f.eval("switchPack('pharma')");
+  assert.equal(f.eval('state.units.length'),100);
+  assert.equal(f.eval('state.units[29].recognition'),1);
+  assert.equal(f.eval('state.units[30].recognition'),0);
+  assert.equal(f.eval('state.sessionNumber'),7);
+});
+
+test('Invalid pack identifiers and reordered or duplicate units are rejected',()=>{
+  const f=setup();
+  f.eval("state=initialState();switchPack('sports')");
+  assert.equal(f.eval("isStoredStateValid({...state,units:[state.units[2],state.units[0]]})"),false);
+  assert.equal(f.eval("isStoredStateValid({...state,units:[state.units[0],state.units[0]]})"),false);
+  assert.equal(f.eval("isStoredStateValid({...state,units:[]})"),false);
 });
