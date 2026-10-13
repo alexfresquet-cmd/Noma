@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.23.0-beta.1 — 900 unidades y 90 lecturas
+- Nueve paquetes con 100 unidades cada uno; las primeras 30 de los ocho paquetes beta mantienen sus IDs y progreso.
+- 70 nuevas unidades para cada uno de los ocho paquetes temáticos (560 unidades nuevas; 900 en total contando Everyday).
+- Diez Tiny Readers por paquete; Everyday conserva los ocho originales y suma dos. Cada texto tiene seis preguntas (90 lecturas y 540 preguntas).
+- Migración conservadora de estados de 30 a 100 unidades: conserva aciertos, errores, Forget Me, sesiones, lecturas y copias. Rechaza instantáneas truncadas que no correspondan a versiones publicadas.
+- Tiny Reader y sus estadísticas se muestran ahora en todos los paquetes; audio sigue exclusivo de Everyday.
+- Archivos incorporados al Service Worker para lectura offline y nueva batería de pruebas de contenido.
+- Textos y traducciones pendientes de validación editorial exhaustiva en Android.
+
+
 ## 0.22.0-beta.1 — Siete paquetes de contenido y reinicio individual
 - Se activan Travel, Phrasal Verbs, Work & Meetings, Technology, MES/IT/AI/Pharma, Soccer y Sports General con 30 unidades iniciales cada uno (210 en total), ID 1–30 independiente por paquete.
 - Cada unidad tiene expresión inglesa, significado castellano, oración inglesa y traducción castellana. Son paquetes de prueba editorial, no cursos completos validados por uso real.
