@@ -42,9 +42,9 @@ The audit and all content changes are documented in:
 
 ## Beta status
 
-**0.22.0-beta.1** is the current multipack beta. Everyday English remains unchanged; Natural Conversations and seven thematic packs each have 30-unit starter content.
+**0.23.0-beta.1** is the current multipack beta. All nine independent packs contain 100 stable vocabulary units, for **900 units total**; all nine have **ten Tiny Readers and six comprehension questions per text** (90 readers / 540 questions).
 
-The counter model from v0.19 remains unchanged. All nine packs are selectable for Word, Sentence, Combined and Forget Me. The eight 30-unit thematic packs remain **editorial beta content**, not fully audited courses. Audio and Tiny Reader remain available only for Everyday English.
+The counter model from v0.19 remains unchanged. All nine packs support Word, Sentence, Combined, Forget Me and Tiny Reader. The eight thematic packs remain **editorial beta content**, not fully reviewed courses. **Listen Once and Pronounce remain available only for Everyday English** until suitable audio assets exist for the other packs.
 
 
 ## Session length
@@ -109,3 +109,12 @@ Noma uses 200 recorded synthetic MP3 clips from the 100 audited unit IDs (100 Li
 ## Individual pack reset (0.22.0)
 
 From **Pack**, use **Reiniciar paquete** for the active package or a previously used inactive package. A confirmation names the affected pack. Only its learning, errors, sessions and readings are reset; all other packs and the global external backup timestamps are preserved. Inactive pack snapshots are discarded so choosing them later creates fresh progress. You can recover deleted learning only by importing a prior JSON backup (which restores the whole app, not one pack). Export and verify a backup before resetting. The seven new pack scripts are included in the service-worker offline shell.
+
+## 0.23.0: 900 units and 90 thematic readings
+
+- Existing IDs 1–100 of Everyday and 1–30 of every other pack are unchanged. New items use IDs 31–100 within each pack.
+- The state migration accepts full previous 30-unit pack snapshots and appends only new units; existing recognition, production, recalls, errors, sessions, Forget Me history and reading results are preserved. Invalid truncated backups are rejected. SQLite is unchanged; the state version is now 6. Backups v1/v2 remain accepted.
+- All nine packs offer 10 readings each (Everyday 8 original plus 2 new), each followed by six closed comprehension questions. These are fixed, offline-first editorial content, not user-generated AI exercises.
+- Pack switching and individual reset also isolate reading progress. Audio remains Everyday-only because assets for other packs are not available.
+- Readings are beta learning material; naturalness, ambiguity and repetition should be reviewed on-device before a stable release. The new readers use structured thematic scenarios and share some narrative scaffolding, an intentional beta limitation.
+- Confirm v0.23 on Android, export a verified backup before updating, inspect all nine pack counts, test a reading and its questions, change packs and return, restart offline, and verify original learning history.
