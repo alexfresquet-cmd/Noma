@@ -7,6 +7,7 @@ const vm=require('node:vm');
 const {test}=require('node:test');
 
 const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+const extraIds=['travel','phrasal','work','technology','pharma','soccer','sports'];
 function between(a,b){
   const x=html.indexOf(a),y=html.indexOf(b,x);
   assert.ok(x>=0&&y>x,'Missing code section '+a);
@@ -14,13 +15,20 @@ function between(a,b){
 }
 const units=Array.from({length:100},(_,i)=>({id:i+1,term:'unit '+(i+1),meaning:'example',en:'An example.',es:'Un ejemplo.'}));
 function setup(){
-  let saves=0;
+  let saves=0, allowReset=true;
+  const confirmations=[];
   const ctx=vm.createContext({
     Date,Set,Math,JSON,Number,
     alert(){throw new Error('Unexpected alert during a valid switch');},
+    confirm(message){confirmations.push(message);return allowReset;},
     render(){},
     save(){saves++;}
   });
+  for(const id of extraIds){
+    const script=fs.readFileSync(path.join(__dirname,'..','packs',id+'.js'),'utf8');
+    new vm.Script(script);
+    vm.runInContext(script,ctx,{filename:'packs/'+id+'.js'});
+  }
   const definitions=
     'let PACK_SIZE=100;\nlet baseUnits='+JSON.stringify(units)+';\n'
     +'const STATE_SCHEMA_VERSION=5;\n'
@@ -29,7 +37,10 @@ function setup(){
     +'let state=null;\n'
     +between('function migrateState(x){','function save(){');
   vm.runInContext(definitions,ctx,{filename:'noma-pack-state.js'});
-  return {ctx,eval(js){return vm.runInContext(js,ctx);},get saves(){return saves;}};
+  return {ctx,eval(js){return vm.runInContext(js,ctx);},
+    approveReset(value){allowReset=value;},
+    get confirmations(){return confirmations;},
+    get saves(){return saves;}};
 }
 test('Inline application and thirty curated conversation units parse',()=>{
   const js=between('  <script>','</script>').replace(/^\s*<script>/,'');
@@ -37,7 +48,12 @@ test('Inline application and thirty curated conversation units parse',()=>{
   const f=setup();
   assert.equal(f.eval('CONVERSATION_UNITS.length'),30);
   assert.equal(f.eval('PACK_CATALOG.length'),9);
-  assert.equal(f.eval("PACK_CATALOG.filter(p=>p.units).length"),2);
+  assert.equal(f.eval("PACK_CATALOG.filter(p=>p.units).length"),9);
+  for(const id of extraIds){
+    assert.equal(f.eval('packDefinition('+JSON.stringify(id)+').units.length'),30);
+    assert.equal(f.eval('new Set(packDefinition('+JSON.stringify(id)+').units.map(u=>u.term)).size'),30);
+    assert.equal(f.eval('packDefinition('+JSON.stringify(id)+').units.every(u=>u.term&&u.meaning&&u.en&&u.es&&u.en.toLowerCase().includes(u.term.toLowerCase()))'),true);
+  }
   assert.equal(f.eval("new Set(CONVERSATION_UNITS.map(u=>u.id)).size"),30);
   assert.equal(f.eval("new Set(CONVERSATION_UNITS.map(u=>u.term)).size"),30);
   assert.equal(f.eval("CONVERSATION_UNITS.every(u=>u.term&&u.meaning&&u.en&&u.es)"),true);
@@ -135,7 +151,7 @@ test('Home renders ten-item conversation practice without showing wrong-pack aud
   assert.doesNotMatch(conversation,/Empezar Pronounce/);
   assert.doesNotMatch(conversation,/Abrir Tiny Reader/);
 });
-test('Pack catalog renders all nine packages with only two selectable',()=>{
+test('Pack catalog renders nine selectable packs and contextual reset actions',()=>{
   const f=setup();
   vm.runInContext(
     "function escapeHtml(x){return x;}"
@@ -153,6 +169,94 @@ test('Pack catalog renders all nine packages with only two selectable',()=>{
   assert.match(catalogue,/MES, IT, AI &amp; Pharma|MES, IT, AI & Pharma/);
   assert.match(catalogue,/Sports General/);
   assert.match(catalogue,/Natural Conversations/);
-  assert.equal((catalogue.match(/En preparación/g)||[]).length,7);
-  assert.equal((catalogue.match(/Usar paquete/g)||[]).length,1);
+  assert.equal((catalogue.match(/En preparación/g)||[]).length,0);
+  assert.equal((catalogue.match(/Usar paquete/g)||[]).length,8);
+  assert.equal((catalogue.match(/Reiniciar paquete/g)||[]).length,1);
+  f.eval("switchPack('pharma')");
+  const after=f.eval("pack()");
+  assert.equal((after.match(/Usar paquete/g)||[]).length,8);
+  assert.equal((after.match(/Reiniciar paquete/g)||[]).length,2);
+});
+
+test('All seven new packs switch and keep their own progress independently',()=>{
+  const f=setup();
+  f.eval("state=initialState();state.units[0].recognition=2;state.wrongBook['1:word']={failures:2}");
+  for(const id of extraIds){
+    f.eval('switchPack('+JSON.stringify(id)+')');
+    assert.equal(f.eval('state.activePackId'),id);
+    assert.equal(f.eval('state.units.length'),30);
+    assert.equal(f.eval('state.units[0].recognition'),0);
+    f.eval("state.units[0].recognition=1;state.units[0].production=1;state.wrongBook['1:word']={failures:3}");
+  }
+  f.eval("switchPack('everyday')");
+  assert.equal(f.eval('state.units[0].recognition'),2);
+  assert.equal(f.eval("state.wrongBook['1:word'].failures"),2);
+  for(const id of extraIds){
+    f.eval('switchPack('+JSON.stringify(id)+')');
+    assert.equal(f.eval('state.units[0].recognition'),1);
+    assert.equal(f.eval('state.units[0].production'),1);
+    assert.equal(f.eval("state.wrongBook['1:word'].failures"),3);
+  }
+});
+
+test('Resetting the active pack clears all its learning while preserving others',()=>{
+  const f=setup();
+  f.eval("state=initialState();state.units[0].recognition=2;state.sessionNumber=9;state.wrongBook['1:word']={failures:5}");
+  f.eval("switchPack('pharma')");
+  f.eval("state.units[0].recognition=3;state.units[0].production=2;state.units[0].mistakes=4;state.wrongBook['1:word']={failures:4};state.sessionNumber=17;state.readerProgress.demo={attempts:2};state.lastBackupAt=456;state.lastBackupVerifiedAt=456");
+  assert.equal(f.eval("resetPack('pharma')"),true);
+  assert.equal(f.eval('state.activePackId'),'pharma');
+  assert.equal(f.eval('state.units.length'),30);
+  assert.equal(f.eval('state.units[0].recognition'),0);
+  assert.equal(f.eval('state.units[0].production'),0);
+  assert.equal(f.eval('state.units[0].mistakes'),0);
+  assert.equal(f.eval('state.sessionNumber'),0);
+  assert.equal(f.eval('Object.keys(state.wrongBook).length'),0);
+  assert.equal(f.eval('Object.keys(state.readerProgress).length'),0);
+  assert.equal(f.eval('state.lastBackupAt'),456);
+  assert.equal(f.eval('state.lastBackupVerifiedAt'),456);
+  assert.match(f.confirmations[0],/MES, IT, AI & Pharma/);
+  f.eval("switchPack('everyday')");
+  assert.equal(f.eval('state.units[0].recognition'),2);
+  assert.equal(f.eval("state.wrongBook['1:word'].failures"),5);
+  assert.equal(f.eval('state.sessionNumber'),9);
+});
+
+test('Resetting an inactive pack removes only its snapshot',()=>{
+  const f=setup();
+  f.eval("state=initialState();state.units[0].recognition=1;switchPack('travel');state.units[0].recognition=2;state.wrongBook['1:word']={failures:7};switchPack('phrasal');state.units[0].production=1");
+  assert.equal(f.eval("resetPack('travel')"),true);
+  assert.equal(f.eval("Object.prototype.hasOwnProperty.call(state.packStates,'travel')"),false);
+  assert.equal(f.eval('state.activePackId'),'phrasal');
+  assert.equal(f.eval('state.units[0].production'),1);
+  f.eval("switchPack('travel')");
+  assert.equal(f.eval('state.activePackId'),'travel');
+  assert.equal(f.eval('state.units[0].recognition'),0);
+  assert.equal(f.eval('Object.keys(state.wrongBook).length'),0);
+  f.eval("switchPack('everyday')");
+  assert.equal(f.eval('state.units[0].recognition'),1);
+});
+
+test('Cancel and invalid reset do not modify any state or persist it',()=>{
+  const f=setup();
+  f.eval("state=initialState();state.units[0].recognition=2");
+  f.approveReset(false);
+  const before=f.eval('JSON.stringify(state)');
+  const saved=f.saves;
+  assert.equal(f.eval("resetPack('everyday')"),false);
+  assert.equal(f.eval("resetPack('travel')"),false);
+  assert.equal(f.eval("resetPack('not_a_pack')"),false);
+  assert.equal(f.eval('JSON.stringify(state)'),before);
+  assert.equal(f.saves,saved);
+});
+
+test('Backup v2 recognizes new packs after switch and restore',()=>{
+  const f=setup();
+  vm.runInContext("const BACKUP_FORMAT='noma-backup';const BACKUP_VERSION=2;\n"+between('function validateBackup(payload){','async function importBackup(event){'),f.ctx);
+  f.eval("state=initialState();switchPack('sports');state.units[4].recognition=2;switchPack('technology');state.units[6].production=1");
+  const json=f.eval("JSON.stringify({format:'noma-backup',backupVersion:2,state:state})");
+  const restored=f.eval('validateBackup(JSON.parse('+JSON.stringify(json)+'))');
+  assert.equal(restored.activePackId,'technology');
+  assert.equal(restored.packStates.sports.units[4].recognition,2);
+  assert.equal(restored.packStates.everyday.units.length,100);
 });
