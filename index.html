@@ -186,6 +186,9 @@ button { cursor: pointer; }
 .pack-option button{min-height:44px;padding:9px 14px;border-radius:12px;border:1px solid var(--accent);color:var(--accent);background:transparent;font-weight:700}
 .pack-option button:disabled{border-color:var(--line);color:var(--muted);cursor:default}
 .pack-option.selected button{background:var(--accent);color:white}
+.pack-actions{display:grid;grid-template-columns:1fr;gap:8px}
+.pack-option .pack-reset,.pack-option.selected .pack-reset{border:1px solid var(--danger);background:transparent;color:var(--danger);font-weight:600}
+.pack-option .pack-reset:focus-visible{outline:3px solid var(--danger);outline-offset:2px}
 .pack-option .progress-line{margin:2px 0}
 
 
@@ -345,10 +348,17 @@ button { cursor: pointer; }
     </section>
   </div>
   <input id="backupVerifyInput" type="file" accept=".json,application/json" hidden onchange="verifyExportedBackup(event)">
+  <script src="./packs/travel.js"></script>
+  <script src="./packs/phrasal.js"></script>
+  <script src="./packs/work.js"></script>
+  <script src="./packs/technology.js"></script>
+  <script src="./packs/pharma.js"></script>
+  <script src="./packs/soccer.js"></script>
+  <script src="./packs/sports.js"></script>
   <script>
 let PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.21.0-beta.1';
+const APP_VERSION = '0.22.0-beta.1';
 const STATE_SCHEMA_VERSION = 5;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 2;
@@ -606,13 +616,13 @@ const CONVERSATION_UNITS=[
 const PACK_CATALOG=[
   {id:'everyday',name:'Everyday English',description:'Inglés cotidiano y conectores',units:EVERYDAY_UNITS},
   {id:'conversation',name:'Natural Conversations',description:'Expresiones para conversar con naturalidad',units:CONVERSATION_UNITS},
-  {id:'travel',name:'Travel & Situations',description:'Viajes, transporte e imprevistos',units:null},
-  {id:'phrasal',name:'Phrasal Verbs',description:'Verbos compuestos en contexto',units:null},
-  {id:'work',name:'Work & Meetings',description:'Reuniones y comunicación profesional',units:null},
-  {id:'technology',name:'Technology',description:'Tecnología, software y sistemas',units:null},
-  {id:'pharma',name:'MES, IT, AI & Pharma',description:'MES, GMP, integraciones, datos e IA',units:null},
-  {id:'soccer',name:'Soccer',description:'Fútbol, partidos y táctica',units:null},
-  {id:'sports',name:'Sports General',description:'Otros deportes y vocabulario deportivo',units:null}
+  {id:'travel',name:'Travel & Situations',description:'Viajes, transporte e imprevistos',units:globalThis.NOMA_EXTRA_PACKS.travel},
+  {id:'phrasal',name:'Phrasal Verbs',description:'Verbos compuestos en contexto',units:globalThis.NOMA_EXTRA_PACKS.phrasal},
+  {id:'work',name:'Work & Meetings',description:'Reuniones y comunicación profesional',units:globalThis.NOMA_EXTRA_PACKS.work},
+  {id:'technology',name:'Technology',description:'Tecnología, software y sistemas',units:globalThis.NOMA_EXTRA_PACKS.technology},
+  {id:'pharma',name:'MES, IT, AI & Pharma',description:'MES, GMP, integraciones, datos e IA',units:globalThis.NOMA_EXTRA_PACKS.pharma},
+  {id:'soccer',name:'Soccer',description:'Fútbol, partidos y táctica',units:globalThis.NOMA_EXTRA_PACKS.soccer},
+  {id:'sports',name:'Sports General',description:'Otros deportes y vocabulario deportivo',units:globalThis.NOMA_EXTRA_PACKS.sports}
 ];
 function packDefinition(id){return PACK_CATALOG.find(p=>p.id===id)||null;}
 function selectPackContent(id){
@@ -664,6 +674,34 @@ function switchPack(id){
   next.screen='pack';next.session=null;next.readerSession=null;
   state=next;
   save();render();
+}
+
+function resetPack(id){
+  const pack=packDefinition(id);
+  if(!pack?.units || !state || state.screen==='exercise')return false;
+  const isActive=id===state.activePackId;
+  // Inactive packs with no stored snapshot are already clean.
+  if(!isActive && !Object.prototype.hasOwnProperty.call(state.packStates||{},id))return false;
+  if(!confirm('¿Reiniciar SOLO «'+pack.name+'»? Se borrarán sus respuestas, sesiones, repasos, fallos y lecturas, sin afectar a otros paquetes. Esta acción no se puede deshacer salvo restaurando una copia de seguridad.'))return false;
+  if(isActive){
+    const otherPackStates={...(state.packStates||{})};
+    const lastBackupAt=state.lastBackupAt;
+    const lastBackupVerifiedAt=state.lastBackupVerifiedAt;
+    selectPackContent(id);
+    const fresh=initialState();
+    fresh.activePackId=id;
+    fresh.packStates=otherPackStates;
+    fresh.lastBackupAt=lastBackupAt;
+    fresh.lastBackupVerifiedAt=lastBackupVerifiedAt;
+    fresh.screen='pack';
+    state=fresh;
+  }else{
+    const states={...(state.packStates||{})};
+    delete states[id];
+    state.packStates=states;
+  }
+  save();render();
+  return true;
 }
 
 const READER_TEXTS = [
@@ -845,7 +883,7 @@ const READER_TEXTS = [
 
 function initialState(){
   return {
-    activePackId:baseUnits===EVERYDAY_UNITS?'everyday':'conversation',
+    activePackId:PACK_CATALOG.find(p=>p.units===baseUnits)?.id||'everyday',
     packStates:{},
     units: baseUnits.map(u => ({...u, status:'new', recognition:0, production:0, recall:0, mistakes:0, unstableModes:[], due:false, dueSession:null, reviewKind:null, reviewMode:null, lastSeen:null, lastSessionSeen:null, listenAttempts:0, listenCorrect:0, listenMistakes:0, listenFirstResult:null, listenDueSession:null, listenLastSeen:null, listenLastSessionSeen:null, pronounceAttempts:0, pronounceCorrect:0, pronounceMistakes:0, pronounceFirstResult:null, pronounceDueSession:null, pronounceLastSeen:null, pronounceLastSessionSeen:null})),
     screen:'home',
@@ -2224,10 +2262,12 @@ function pack(){
       &&!(u.unstableModes||[]).includes('word')&&!(u.unstableModes||[]).includes('sentence')).length;
     let html='<article class="pack-option'+(isActive?' selected':'')+'"><div class="pack-option-head"><div><h2>'+escapeHtml(p.name)+'</h2><p>'+escapeHtml(p.description)+'</p></div><span class="pack-option-label">'+(size?size+' unidades':'Próximamente')+'</span></div>';
     if(size)html+='<div class="progress-line"><div style="width:'+Math.round(both/size*100)+'%"></div></div><div class="session-row"><span>Word '+word+'/'+size+'</span><em>Sentence '+sentence+'/'+size+' · Ambas '+both+'/'+size+'</em></div>';
-    html+='<button type="button" '+(isActive||!size?'disabled':'')+' onclick="switchPack(&quot;'+p.id+'&quot;)">'+(!size?'En preparación':isActive?'En uso':'Usar paquete')+'</button></article>';
+    html+='<div class="pack-actions"><button type="button" '+(isActive||!size?'disabled':'')+' onclick="switchPack(&quot;'+p.id+'&quot;)">'+(!size?'En preparación':isActive?'En uso':'Usar paquete')+'</button>';
+    if(size&&(isActive||saved))html+='<button type="button" class="pack-reset" aria-label="Reiniciar '+escapeHtml(p.name)+'" onclick="resetPack(&quot;'+p.id+'&quot;)">Reiniciar paquete</button>';
+    html+='</div></article>';
     return html;
   }).join('');
-  return renderTop()+'<h1 class="section-title">Paquetes</h1><p class="section-sub">Puedes cambiar de paquete sin perder lo aprendido. Cada uno mantiene sus propios ejercicios, repasos y errores.</p>'
+  return renderTop()+'<h1 class="section-title">Paquetes</h1><p class="section-sub">Puedes cambiar de paquete sin perder lo aprendido. Cada uno mantiene sus propios ejercicios, repasos y errores. Reiniciar un paquete no borra los demás.</p>'
     +'<section class="card"><div class="eyebrow">Paquete activo</div><div class="session-title"><strong>'+escapeHtml(activePack().name)+'</strong><span>'+PACK_SIZE+' unidades</span></div>'
     +'<div class="session-row" style="margin-top:16px"><span>Word</span><em>'+wordProgressCount()+'/'+PACK_SIZE+'</em></div>'
     +'<div class="session-row"><span>Sentence</span><em>'+sentenceProgressCount()+'/'+PACK_SIZE+'</em></div>'
@@ -2523,7 +2563,7 @@ function render(){
   if(state.screen!=='exercise') window.scrollTo(0,0);
   syncBrowserHistory();
 }
-window.go=go; window.buildSession=buildSession; window.finishSessionEarly=finishSessionEarly; window.buildListenSession=buildListenSession; window.buildPronounceSession=buildPronounceSession; window.checkWord=checkWord; window.dontKnowWord=dontKnowWord; window.checkSentence=checkSentence; window.dontKnowSentence=dontKnowSentence; window.checkRecall=checkRecall; window.nextTask=nextTask; window.seedForgetMe=seedForgetMe; window.resetDemo=resetDemo; window.playListen=playListen; window.playBasicListen=playBasicListen; window.playBasicPronounce=playBasicPronounce; window.checkListen=checkListen; window.dontKnowListen=dontKnowListen; window.exportBackup=exportBackup; window.importBackup=importBackup; window.startReader=startReader; window.exitReader=exitReader; window.beginReaderQuestions=beginReaderQuestions; window.answerReaderOption=answerReaderOption; window.nextReaderQuestion=nextReaderQuestion; window.playPronounce=playPronounce; window.startPronounceRecognition=startPronounceRecognition; window.retryPronounce=retryPronounce;
+window.go=go; window.buildSession=buildSession; window.finishSessionEarly=finishSessionEarly; window.buildListenSession=buildListenSession; window.buildPronounceSession=buildPronounceSession; window.checkWord=checkWord; window.dontKnowWord=dontKnowWord; window.checkSentence=checkSentence; window.dontKnowSentence=dontKnowSentence; window.checkRecall=checkRecall; window.nextTask=nextTask; window.seedForgetMe=seedForgetMe; window.resetDemo=resetDemo; window.resetPack=resetPack; window.playListen=playListen; window.playBasicListen=playBasicListen; window.playBasicPronounce=playBasicPronounce; window.checkListen=checkListen; window.dontKnowListen=dontKnowListen; window.exportBackup=exportBackup; window.importBackup=importBackup; window.startReader=startReader; window.exitReader=exitReader; window.beginReaderQuestions=beginReaderQuestions; window.answerReaderOption=answerReaderOption; window.nextReaderQuestion=nextReaderQuestion; window.playPronounce=playPronounce; window.startPronounceRecognition=startPronounceRecognition; window.retryPronounce=retryPronounce;
 function renderStorageFailure(error){
   const app=document.getElementById('app');
   app.innerHTML=`<div class="topbar"><div class="brand">Noma</div><div class="lang">Beta 1</div></div>
