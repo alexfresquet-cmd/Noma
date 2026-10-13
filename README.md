@@ -42,9 +42,9 @@ The audit and all content changes are documented in:
 
 ## Beta status
 
-**0.21.0-beta.1** is the current multipack beta. Everyday English remains unchanged; Natural Conversations is available as a 30-unit editorial validation pack.
+**0.22.0-beta.1** is the current multipack beta. Everyday English remains unchanged; Natural Conversations and seven thematic packs each have 30-unit starter content.
 
-The counter model from v0.19 remains intentionally unchanged unless real usage gives us evidence to revise it. Travel & Situations, Phrasal Verbs, Work & Meetings, Technology, MES/IT/AI/Pharma, Soccer and Sports General are catalog entries awaiting editorial validation; they are not selectable or presented as completed lessons.
+The counter model from v0.19 remains unchanged. All nine packs are selectable for Word, Sentence, Combined and Forget Me. The eight 30-unit thematic packs remain **editorial beta content**, not fully audited courses. Audio and Tiny Reader remain available only for Everyday English.
 
 
 ## Session length
@@ -105,3 +105,7 @@ Noma uses 200 recorded synthetic MP3 clips from the 100 audited unit IDs (100 Li
 - Backup JSON version 2 includes all pack progress; version 1 Everyday backups are still accepted on import.
 - No cloud sync, account, new storage backend or automatic migration of individual IDs across packs.
 - Details, limitations and required Android acceptance tests: [Multipack Beta 2](docs/MULTIPACK_BETA2.md).
+
+## Individual pack reset (0.22.0)
+
+From **Pack**, use **Reiniciar paquete** for the active package or a previously used inactive package. A confirmation names the affected pack. Only its learning, errors, sessions and readings are reset; all other packs and the global external backup timestamps are preserved. Inactive pack snapshots are discarded so choosing them later creates fresh progress. You can recover deleted learning only by importing a prior JSON backup (which restores the whole app, not one pack). Export and verify a backup before resetting. The seven new pack scripts are included in the service-worker offline shell.
