@@ -62,7 +62,7 @@ globalThis.NOMA_BUILD_READERS=function(packId, rows){
     });
     const words=paragraphs.join(' ').trim().split(/\s+/).length;
     return {id:packId+'-'+String(i+1).padStart(2,'0'),title,
-      description:'Lectura temática para practicar comprensión y vocabulario en contexto.',
+      description:detail,
       minutes:Math.max(2,Math.ceil(words/125)),words,paragraphs,questions};
   });
   globalThis.NOMA_PACK_READERS[packId]=list;
