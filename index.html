@@ -355,11 +355,28 @@ button { cursor: pointer; }
   <script src="./packs/pharma.js"></script>
   <script src="./packs/soccer.js"></script>
   <script src="./packs/sports.js"></script>
+  <script src="./packs/conversation-extra.js"></script>
+  <script src="./packs/travel-extra.js"></script>
+  <script src="./packs/phrasal-extra.js"></script>
+  <script src="./packs/work-extra.js"></script>
+  <script src="./packs/technology-extra.js"></script>
+  <script src="./packs/pharma-extra.js"></script>
+  <script src="./packs/soccer-extra.js"></script>
+  <script src="./packs/sports-extra.js"></script>
+  <script src="./readers/everyday.js"></script>
+  <script src="./readers/conversation.js"></script>
+  <script src="./readers/travel.js"></script>
+  <script src="./readers/phrasal.js"></script>
+  <script src="./readers/work.js"></script>
+  <script src="./readers/technology.js"></script>
+  <script src="./readers/pharma.js"></script>
+  <script src="./readers/soccer.js"></script>
+  <script src="./readers/sports.js"></script>
   <script>
 let PACK_SIZE = 100;
 const STORAGE_KEY = 'noma_mvp_state_v1';
-const APP_VERSION = '0.22.0-beta.1';
-const STATE_SCHEMA_VERSION = 5;
+const APP_VERSION = '0.23.0-beta.1';
+const STATE_SCHEMA_VERSION = 6;
 const BACKUP_FORMAT = 'noma-backup';
 const BACKUP_VERSION = 2;
 const SQLITE_DB_SCHEMA_VERSION = 1;
@@ -655,6 +672,13 @@ const CONVERSATION_UNITS=[
   ['on second thought','pensándolo mejor','On second thought, I will take the train.','Pensándolo mejor, iré en tren.'],
   ['in the meantime','mientras tanto','In the meantime, we can get some coffee.','Mientras tanto, podemos tomar un café.']
 ].map((x,i)=>({id:i+1,term:x[0],meaning:x[1],en:x[2],es:x[3]}));
+// Append extension units, preserving the original 1–30 identifiers and progress.
+const EXTENDED_PACKS=globalThis.NOMA_UNIT_EXTENSIONS||{};
+for(const id of ['travel','phrasal','work','technology','pharma','soccer','sports']){
+  const extras=EXTENDED_PACKS[id]||[];
+  if(extras.length)globalThis.NOMA_EXTRA_PACKS[id].push(...extras);
+}
+if(EXTENDED_PACKS.conversation?.length)CONVERSATION_UNITS.push(...EXTENDED_PACKS.conversation);
 const PACK_CATALOG=[
   {id:'everyday',name:'Everyday English',description:'Inglés cotidiano y conectores',units:EVERYDAY_UNITS},
   {id:'conversation',name:'Natural Conversations',description:'Expresiones para conversar con naturalidad',units:CONVERSATION_UNITS},
@@ -675,9 +699,10 @@ function selectPackContent(id){
 }
 function isStoredStateValid(value){
   const pack=packDefinition(value?.activePackId||'everyday');
-  if(!pack?.units||!Array.isArray(value?.units)||value.units.length!==pack.units.length)return false;
-  const ids=value.units.map(u=>u?.id);
-  return new Set(ids).size===pack.units.length && pack.units.every(u=>ids.includes(u.id));
+  if(!pack?.units||!Array.isArray(value?.units)||value.units.length<1||value.units.length>pack.units.length)return false;
+  // Historical backups contain 30 units. New units are appended, never re-used.
+  // Reject holes, reordered identifiers and duplicates to avoid silently corrupting progress.
+  return value.units.every((u,i)=>u?.id===pack.units[i].id);
 }
 function isPackSnapshotValid(id,snapshot){
   return isStoredStateValid({...snapshot,activePackId:id});
@@ -1192,7 +1217,19 @@ function migrateState(x){
       pronounceLastSeen:Number.isFinite(u.pronounceLastSeen)?u.pronounceLastSeen:null,
       pronounceLastSessionSeen:Number.isFinite(u.pronounceLastSessionSeen)?u.pronounceLastSessionSeen:null};
   });
-  // Sessions from the first prototype can contain tasks created with the old repeat logic.
+  // Append fresh units by stable ID; retain every existing unit's learning history.
+  const existingIds=new Set(x.units.map(u=>u.id));
+  for(const canonical of baseUnits){
+    if(!existingIds.has(canonical.id)){
+      x.units.push({...canonical,status:'new',recognition:0,production:0,recall:0,mistakes:0,
+        unstableModes:[],due:false,dueSession:null,reviewKind:null,reviewMode:null,
+        lastSeen:null,lastSessionSeen:null,listenAttempts:0,listenCorrect:0,listenMistakes:0,listenFirstResult:null,
+        listenDueSession:null,listenLastSeen:null,listenLastSessionSeen:null,
+        pronounceAttempts:0,pronounceCorrect:0,pronounceMistakes:0,pronounceFirstResult:null,
+        pronounceDueSession:null,pronounceLastSeen:null,pronounceLastSessionSeen:null});
+    }
+  }
+    // Sessions from the first prototype can contain tasks created with the old repeat logic.
   // Discard only the in-progress session; all learning progress is preserved.
   x.session = null;
   if(x.screen==='exercise') x.screen='home';
@@ -1682,11 +1719,12 @@ function home(){
       ${duePronounce?`<div class="session-row"><span>Pronounce pendiente</span><em>${Math.min(2,duePronounce)}</em></div>`:''}
       <button class="secondary" onclick="buildPronounceSession()">Empezar Pronounce</button>
     </section>
+`:`<p class="note">Listen Once, Pronounce y Pronounce estarán disponibles cuando este paquete tenga sus propios audios. Word, Sentence y Combinado ya funcionan.</p>`}
     <section class="card reader-home-card">
-      <div class="session-title"><strong>Tiny Reader</strong><span>${READER_TEXTS.length} textos · 6 preguntas</span></div>
-      <p class="reader-home-copy">Lecturas breves del pack Everyday English. El texto es fijo y las preguntas tienen una respuesta inequívoca.</p>
+      <div class="session-title"><strong>Tiny Reader</strong><span>${activeReaders().length} textos · 6 preguntas</span></div>
+      <p class="reader-home-copy">Lecturas del paquete ${escapeHtml(activePack().name)}. Cada texto tiene seis preguntas de comprensión.</p>
       <button class="secondary" onclick="go('readerLibrary')">Abrir Tiny Reader</button>
-    </section>`:`<p class="note">Listen Once, Pronounce y Tiny Reader estarán disponibles cuando este paquete tenga sus propios audios y lecturas. Word, Sentence y Combinado ya funcionan.</p>`}
+    </section>
     ${forget ? `<button class="forget-summary" onclick="go('forget')"><span><b>${forget}</b> en Forget Me</span><em>Ver pendientes →</em></button>` : ''}
     <p class="note">Intro corrige, pero nunca salta al ejercicio siguiente. Noma mantiene el resultado en pantalla hasta que tú pulses Siguiente.</p>
     ${renderNav('home')}`;
@@ -2315,11 +2353,16 @@ function pack(){
     +'<div class="session-row"><span>Sentence</span><em>'+sentenceProgressCount()+'/'+PACK_SIZE+'</em></div>'
     +'<div class="session-row"><span>Ambas</span><em>'+combinedProgressCount()+'/'+PACK_SIZE+'</em></div></section>'
     +'<section class="pack-catalog">'+list+'</section>'
-    +'<p class="note">Los packs en preparación no pueden seleccionarse todavía. Las copias incluyen el progreso de todos los paquetes iniciados.</p>'
+    +'<p class="note">Las copias incluyen el progreso de todos los paquetes iniciados. Puedes reiniciar cada paquete por separado.</p>'
     +renderNav('pack');
 }
 
-function readerText(id){ return READER_TEXTS.find(t=>t.id===id); }
+function activeReaders(){
+  const id=state?.activePackId||'everyday';
+  const more=globalThis.NOMA_PACK_READERS?.[id]||[];
+  return id==='everyday'?[...READER_TEXTS,...more]:more;
+}
+function readerText(id){ return activeReaders().find(t=>t.id===id); }
 function readerStatus(id){
   const p=state.readerProgress?.[id];
   if(!p?.attempts) return 'Sin leer';
@@ -2335,9 +2378,10 @@ function readerSortKey(t, index){
   return {group:2, errors:0, date:p.lastRead||0, index};
 }
 function readerLibrary(){
+  const texts=activeReaders();
   const progress=state.readerProgress||{};
-  const unread=READER_TEXTS.filter(t=>!(progress[t.id]?.attempts));
-  const completed=READER_TEXTS.filter(t=>(progress[t.id]?.attempts||0)>0).sort((a,b)=>{
+  const unread=texts.filter(t=>!(progress[t.id]?.attempts));
+  const completed=texts.filter(t=>(progress[t.id]?.attempts||0)>0).sort((a,b)=>{
     const pa=progress[a.id], pb=progress[b.id];
     const ea=Math.max(0,6-(pa.lastScore||0)), eb=Math.max(0,6-(pb.lastScore||0));
     const aHas=ea>0, bHas=eb>0;
@@ -2345,7 +2389,7 @@ function readerLibrary(){
     if(aHas && ea!==eb) return eb-ea;
     if(aHas && (pa.lastRead||0)!==(pb.lastRead||0)) return (pa.lastRead||0)-(pb.lastRead||0);
     if(!aHas && (pa.lastRead||0)!==(pb.lastRead||0)) return (pb.lastRead||0)-(pa.lastRead||0);
-    return READER_TEXTS.indexOf(a)-READER_TEXTS.indexOf(b);
+    return texts.indexOf(a)-texts.indexOf(b);
   });
 
   function card(t, isUnread){
@@ -2366,7 +2410,7 @@ function readerLibrary(){
     ? completed.map(t=>card(t,false)).join('')
     : '<div class="reader-group-empty">Aún no has completado ningún texto.</div>';
 
-  return `${renderTop()}<h1 class="section-title">Tiny Reader</h1><p class="section-sub">Lecturas del pack Everyday English con seis preguntas de comprensión.</p><div class="reader-library"><section class="reader-group pending"><div class="reader-group-head"><h2>Pendientes de leer</h2><span>${unread.length}</span></div>${pendingHtml}</section><section class="reader-group completed"><div class="reader-group-head"><h2>Completados</h2><span>${completed.length}</span></div>${completedHtml}</section></div>${renderNav('home')}`;
+  return `${renderTop()}<h1 class="section-title">Tiny Reader</h1><p class="section-sub">Lecturas de ${escapeHtml(activePack().name)} con seis preguntas de comprensión.</p><div class="reader-library"><section class="reader-group pending"><div class="reader-group-head"><h2>Pendientes de leer</h2><span>${unread.length}</span></div>${pendingHtml}</section><section class="reader-group completed"><div class="reader-group-head"><h2>Completados</h2><span>${completed.length}</span></div>${completedHtml}</section></div>${renderNav('home')}`;
 }
 function startReader(id){
   const t=readerText(id); if(!t) return;
