@@ -10,6 +10,8 @@ on:
       - tests/backup-export.test.cjs
       - tests/multipack.test.cjs
       - 'packs/**'
+      - 'readers/**'
+      - tests/content-expansion.test.cjs
       - .github/workflows/session-tests.yml
   workflow_dispatch:
 
